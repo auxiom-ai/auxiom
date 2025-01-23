@@ -103,6 +103,8 @@ class ArticleResource:
                            random.uniform(0, 1), MAX_DELAY))
 
 # PubMed Integration
+
+
 class PubMed(ArticleResource):
     def __init__(self, user_topics_output):
         super().__init__(user_topics_output)
@@ -262,6 +264,13 @@ def handler(payload):
         print(f"Sent message to SQS for next action {next_event['action']}")
     except Exception as e:
         print(f"Exception when sending message to SQS {e}")
+
+
+class UserTopicsOutput:
+    def __init__(self, data):
+        self.user_embeddings = data["user_embeddings"]
+        self.user_input = data["user_input"]
+
 
 
 class UserTopicsOutput:
