@@ -40,7 +40,7 @@ export  function Roles() {
       })
       // handle navigation for layout.tsx
       setCurrentPage(2)
-      router.push('/name');
+      router.push('/occupation');
     } catch (error) {
       toast({
         title: "Error",
