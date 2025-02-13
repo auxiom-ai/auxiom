@@ -8,6 +8,7 @@ from semanticscholar import SemanticScholar
 import os
 import time
 import random
+import torch
 
 # from logic.user_topics_output import UserTopicsOutput
 # import common.sqs
@@ -64,8 +65,10 @@ class ArticleResource:
         entities_list = entities.tolist()  # Convert Series to list
         embeddings = MODEL.encode(entities_list, convert_to_tensor=True)
 
-        self.articles_df['score'] = util.cos_sim(
-            self.user_embeddings, embeddings).flatten().numpy()
+        # If the tensor is on GPU, first move it to CPU
+        similarities = torch.cosine_similarity(
+            self.user_embeddings, embeddings).flatten().detach().cpu().numpy()
+        self.articles_df['score'] = similarities
         self.articles_df.sort_values(by='score', ascending=False, inplace=True)
         self.articles_df = self.articles_df.head(5)
 
