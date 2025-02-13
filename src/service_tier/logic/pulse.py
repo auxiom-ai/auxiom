@@ -11,6 +11,8 @@ import random
 import torch
 import requests
 from dotenv import load_dotenv
+import requests
+from dotenv import load_dotenv
 
 # from logic.user_topics_output import UserTopicsOutput
 # import common.sqs
@@ -81,6 +83,7 @@ class ArticleResource:
         entities_list = entities.tolist()  # Convert Series to list
         embeddings = MODEL.encode(entities_list, convert_to_tensor=True)
 
+        self.articles_df['score'] = util.cos_sim(
         self.articles_df['score'] = util.cos_sim(
             self.user_embeddings, embeddings).flatten().detach().cpu().numpy()
         self.articles_df.sort_values(by='score', ascending=False, inplace=True)
