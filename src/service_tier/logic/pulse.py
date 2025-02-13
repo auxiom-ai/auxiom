@@ -9,6 +9,8 @@ import os
 import time
 import random
 import torch
+import requests
+from dotenv import load_dotenv
 
 # from logic.user_topics_output import UserTopicsOutput
 # import common.sqs
@@ -23,6 +25,7 @@ MAX_RETRIES = 10
 BASE_DELAY = 0.33
 MAX_DELAY = 15
 
+load_dotenv()  # Add this near the top of the file with other imports
 
 # Base ArticleResource class
 class ArticleResource:
@@ -65,10 +68,8 @@ class ArticleResource:
         entities_list = entities.tolist()  # Convert Series to list
         embeddings = MODEL.encode(entities_list, convert_to_tensor=True)
 
-        # If the tensor is on GPU, first move it to CPU
-        similarities = torch.cosine_similarity(
+        self.articles_df['score'] = util.cos_sim(
             self.user_embeddings, embeddings).flatten().detach().cpu().numpy()
-        self.articles_df['score'] = similarities
         self.articles_df.sort_values(by='score', ascending=False, inplace=True)
         self.articles_df = self.articles_df.head(5)
 
@@ -156,6 +157,48 @@ class Sem(ArticleResource):
         except Exception as e:
             print(f"Error in Semantic Scholar integration: {e}")
 
+# AlphaVantage Integration
+class AlphaVantage(ArticleResource):
+    def __init__(self, user_topics_output):
+        super().__init__(user_topics_output)
+        self.api_key = os.environ.get('ALPHA_VANTAGE_API_KEY')
+        self.base_url = "https://www.alphavantage.co/query"
+
+    def get_articles(self):
+        try:
+            params = {
+                "function": "NEWS_SENTIMENT",
+                "apikey": self.api_key,
+                "sort": "RELEVANT",
+                "limit": 500,
+                "time_from": self.time_constraint.strftime("%Y%m%dT%H%M"),
+                "time_to": self.today.strftime("%Y%m%dT%H%M"),
+                #"tickers": "AAPL" #specify tickers
+            }
+
+            
+            # if self.user_input:
+            #     params["topics"] = ",".join(self.user_input)
+
+            # if self.user_input:
+            #     params["tickers"] = ",".join()##Fill in with a getTickers function
+
+            response = self.fetch_with_retry(requests.get, self.base_url, params=params)
+            response.raise_for_status()
+            data = response.json()
+
+            if "feed" in data:
+                rows = [{
+                    'title': article.get('title', 'N/A'),
+                    'text': article.get('summary', ''),
+                    'url': article.get('url', '')
+                } for article in data['feed']]
+                
+                self.articles_df = pd.DataFrame(rows)
+                self.normalize_df()
+        except Exception as e:
+            print(f"Error in AlphaVantage integration: {e}")
+
 # Main Execution
 
 
@@ -169,14 +212,17 @@ def handler(payload):
     user_topics_output = UserTopicsOutput(user_id)
     pubmed = PubMed(user_topics_output)
     sem = Sem(user_topics_output)
+    alpha = AlphaVantage(user_topics_output)
 
     pubmed.get_articles()
     sem.get_articles()
+    alpha.get_articles()
 
     pubmed.rank_data()
     sem.rank_data()
+    alpha.rank_data()
 
-    final_df = ArticleResource.finalize_df([pubmed, sem])
+    final_df = ArticleResource.finalize_df([pubmed, sem, alpha])
     # final_df.to_csv('./data/final_df.csv', index=False)
     print(final_df)
 
@@ -224,13 +270,16 @@ if __name__ == "__main__":
 
     pubmed = PubMed(user_topics)
     sem = Sem(user_topics)
+    alpha = AlphaVantage(user_topics)
 
     pubmed.get_articles()
     sem.get_articles()
+    alpha.get_articles()
 
     pubmed.rank_data()
     sem.rank_data()
+    alpha.rank_data()
 
-    final_df = ArticleResource.finalize_df([pubmed, sem])
+    final_df = ArticleResource.finalize_df([pubmed, sem, alpha])
     # final_df.to_csv('./data/final_df.csv', index=False)
     print(final_df)
