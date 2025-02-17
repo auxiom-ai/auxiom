@@ -25,7 +25,7 @@ TEMP_BASE = "/tmp"
 GOOGLE_API_KEY= os.environ.get('GOOGLE_API_KEY')
 genai.configure(api_key=GOOGLE_API_KEY)
 
-summary_model = genai.GenerativeModel('gemini-1.5-flash') # 15 RPM, $0.030 /million output tokens for higher RPM
+summary_model = genai.GenerativeModel('gemini-2.0-flash') # 15 RPM, $0.030 /million output tokens for higher RPM
 script_model = genai.GenerativeModel('gemini-1.5-pro') # 2 RPM, $5 /million output tokens for higher RPM
 
 # implement counters to ensure we are below rate limits

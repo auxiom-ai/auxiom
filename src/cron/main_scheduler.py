@@ -9,8 +9,7 @@ sqs = boto3.client('sqs')
 ASTRA_QUEUE_URL = os.getenv("ASTRA_QUEUE_URL")
 print(f"Astra Queue URL is {ASTRA_QUEUE_URL}")
 
-db_access_url = os.environ.get("DB_ACCESS_URL")
-db_access_url = "postgresql://auxiompostgres:astrapodcast!@auxiom-db.cls8qy6qqk3y.us-east-1.rds.amazonaws.com:5432/postgres"
+db_access_url = "postgresql://auxiompostgres:astrapodcast!@auxiom-db.cvoqq0ms6fsc.us-east-1.rds.amazonaws.com:5432/postgres"
 
 def _handler(event, context):
     print("Cron lambda Invoked")
