@@ -127,7 +127,7 @@ async function sendVerificationEmail(email: string, userId: number) {
                         background-color: #FBF7E7;
                     }
                     .content h2 {
-                        color: #1F2937;
+                        color:rgb(0, 0, 0);
                         font-size: 22px;
                     }
                     .content p {
@@ -138,7 +138,7 @@ async function sendVerificationEmail(email: string, userId: number) {
                     .button {
                         display: inline-block;
                         padding: 10px 20px;
-                        background-color: #1F2937;
+                        background-color:rgb(0, 0, 0);
                         color: #FFFFFF;
                         text-decoration: none;
                         font-size: 16px;
