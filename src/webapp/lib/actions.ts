@@ -419,11 +419,7 @@ export const signIn = validatedAction(signInSchema, async (data, formData) => {
     setSession(foundUser)
   ]);
 
-  if (!foundUser.active) {
-    redirect('/identity');
-  } else {
-    redirect(redirectUrl || '/dashboard/pulse');
-  }
+  redirect(redirectUrl || '/dashboard/pulse');
 });
 
 

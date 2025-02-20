@@ -84,7 +84,7 @@ function Header() {
                   asChild
                   className="bg-gray-800 hover:bg-gray-600 text-white text-sm px-4 py-2 rounded-full transition duration-300"
                 >
-                  <ActionLink href="/sign-up">Sign In</ActionLink>
+                  <ActionLink href="/sign-in">Sign In</ActionLink>
                 </Button>
               )}
             </>
