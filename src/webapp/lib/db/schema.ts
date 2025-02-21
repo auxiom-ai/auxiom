@@ -21,7 +21,7 @@ export const users = pgTable('users', {
   activeNotes: jsonb('active_notes').notNull().default([]),
   episode: integer('episode').notNull().default(1),
   verified: boolean('verified').notNull().default(false),
-  // insight will use a second table to store pdfs
+  podcasts: jsonb('podcasts').notNull().default([]),
 });
 
 // Email table for newsletter
@@ -31,9 +31,23 @@ export const emails = pgTable('emails', {
   subscribed: boolean('subscribed').notNull().default(true),
 });
 
+// Podcasts table for storing podcast episodes
+export const podcasts = pgTable('podcasts', {
+  id: serial('id').primaryKey(),
+  title: varchar('title', { length: 255 }).notNull(),
+  articles: jsonb('articles').notNull(),
+  episodeNumber: integer('episode_number').notNull(),
+  episodeType: varchar('episode_type', { length: 255 }).notNull(),
+  mp3FileUrl: varchar('mp3_file_url', { length: 512 }).notNull(),
+  date: timestamp('date').notNull().default(new Date()),
+  completed: boolean('completed').notNull().default(false)
+});
 
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
+
+export type Podcast = typeof podcasts.$inferSelect;
+export type NewPodcast = typeof podcasts.$inferInsert;
 
 export enum ActivityType {
   SIGN_UP = 'SIGN_UP',

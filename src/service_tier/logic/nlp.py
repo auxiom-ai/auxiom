@@ -304,7 +304,7 @@ def create_conversational_podcast(all_data, name, plan='free'):
         
         try:
             response = client.audio.speech.create(
-                model="tts-1", # (use "tts-1" or "tts-1-hd")
+                model="tts-1",
                 voice=voice,
                 input=line
             )
@@ -360,7 +360,7 @@ def create_conversational_podcast(all_data, name, plan='free'):
 
     return len(turns)
 
-def write_to_s3(num_turns, user_id):
+def write_to_s3(num_turns, user_id, episode_number):
     # merge audio files
     # Create a new AudioSegment object
     print("Merging audio files...")
@@ -386,7 +386,7 @@ def write_to_s3(num_turns, user_id):
     final_audio.export(f"{TEMP_BASE}/podcast.mp3", format="mp3")
     print(f"Conversation audio file saved as {TEMP_BASE}/podcast.mp3")
     # Export the final audio
-    common.s3.save(user_id, "PODCAST", f"{TEMP_BASE}/podcast.mp3")
+    common.s3.save(user_id, episode_number, "PODCAST", f"{TEMP_BASE}/podcast.mp3")
 
     print("Audio file uploaded to S3.")
 
@@ -399,7 +399,7 @@ def handler(payload):
     episode = payload.get("episode")
     ep_type = payload.get("ep_type")
 
-    pulse = PulseOutput(user_id)
+    pulse = PulseOutput(user_id, episode)
     all_data = pulse.all_data
 
     if plan == 'free':
@@ -407,12 +407,12 @@ def handler(payload):
 
     num_turns = create_conversational_podcast(all_data, user_name, plan = plan)
 
-    write_to_s3(num_turns, user_id)
+    write_to_s3(num_turns, user_id, episode)
 
     email_description, episode_title = generate_email_headers(all_data)
 
     # Save the email description to S3
-    common.s3.save_serialized(user_id, "EMAIL", {
+    common.s3.save_serialized(user_id, episode, "EMAIL", {
         "email_description": email_description,
         "episode_title": episode_title
     })

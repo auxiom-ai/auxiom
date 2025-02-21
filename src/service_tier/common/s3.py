@@ -6,22 +6,24 @@ bucket_name = os.getenv("ASTRA_BUCKET_NAME")
 print(f"Astra Bucket name is {bucket_name}")
 
 # Centralized area to define where various stuff is in S3 bucket
-def s3LocationMapping(user_id, type):
+def s3LocationMapping(user_id, episode_number, type):
     if (type == "USER_TOPICS"):
         return f"user/{user_id}/user_topics.pkl"
     elif (type == "PULSE"):
         return f"user/{user_id}/pulse.pkl"
     elif (type == "EMAIL"):
-        return f"user/{user_id}/email.pkl"
+        return f"user/{user_id}/{episode_number}/email.pkl"
     elif (type == "PODCAST"):
-        return f"user/{user_id}/podcast.mp3"
-    elif type == "INTRO":
-        return f"system/intro_music.mp3"
+        return f"user/{user_id}/{episode_number}/podcast.mp3"
     else:
         print(f"Unsupported type {type}")
 
-def save_serialized(user_id, type, data):
-    object_key = s3LocationMapping(user_id, type)
+def get_s3_url(user_id, episode_number, type):
+    object_key = s3LocationMapping(user_id, episode_number, type)
+    return f'https://{bucket_name}.s3.us-east-1.amazonaws.com/{object_key}'
+
+def save_serialized(user_id, episode_number, type, data):
+    object_key = s3LocationMapping(user_id, episode_number, type)
     # Serialize the data
     serialized_data = pickle.dumps(data)
 
@@ -33,8 +35,8 @@ def save_serialized(user_id, type, data):
     except Exception as e:
         print(f"Error saving to bucket {e}")
 
-def restore_serialized(user_id, type):
-    object_key = s3LocationMapping(user_id, type)
+def restore_serialized(user_id, episode_number, type):
+    object_key = s3LocationMapping(user_id, episode_number, type)
     # Download serialized data from S3
     s3 = boto3.client('s3')
 
@@ -50,8 +52,8 @@ def restore_serialized(user_id, type):
     data = pickle.loads(serialized_data)
     return data
 
-def save(user_id, type, f_path):
-    object_key = s3LocationMapping(user_id, type)
+def save(user_id, episode_number, type, f_path):
+    object_key = s3LocationMapping(user_id, episode_number, type)
     # Upload to S3
     try:
         s3 = boto3.client('s3')
@@ -62,8 +64,8 @@ def save(user_id, type, f_path):
     except Exception as e:
         print(f"Error saving to bucket {e}")
 
-def restore(user_id, type, f_path):
-    object_key = s3LocationMapping(user_id, type)
+def restore(user_id, episode_number, type, f_path):
+    object_key = s3LocationMapping(user_id, episode_number, type)
     # Download data from S3
     s3 = boto3.client('s3')
 
@@ -77,7 +79,7 @@ def restore(user_id, type, f_path):
     
 
 def restore_from_system(type, f_path):
-    object_key = s3LocationMapping('', type) # user id doesn't matter
+    object_key = "system/intro_music.mp3"
     # Download data from S3
     s3 = boto3.client('s3')
 

@@ -45,13 +45,8 @@ def _handler(event, context):
                     }
                 }
             )
-
-            # Update user's delivery information
-            print(f"Updated delivery for user {email}")
-            update_user_delivery(user_id)
     
     # handle notes customers
-
     user_records = db_getnotes()
 
     for user in user_records:
@@ -98,34 +93,6 @@ def db_getusers(today_weekday):
         # Fetch all rows
         rows = cursor.fetchall()
         return rows
-    
-    except psycopg2.Error as e:
-        print(f"Database error: {e}")
-
-    finally:
-        # Close the cursor and connection
-        if cursor:
-            cursor.close()
-        if conn:
-            conn.close()
-
-def update_user_delivery(user_id):
-    try:
-        # Connect to the database
-        conn = psycopg2.connect(
-            dsn=db_access_url
-        )
-        cursor = conn.cursor()
-        query = """
-            UPDATE users
-            SET episode = episode + 1,
-                delivered = %s
-            WHERE id = %s;
-        """
-        cursor.execute(query, (datetime.now(), user_id))
-        
-        # Commit the changes
-        conn.commit()
 
     except psycopg2.Error as e:
         print(f"Database error: {e}")
@@ -136,6 +103,7 @@ def update_user_delivery(user_id):
             cursor.close()
         if conn:
             conn.close()
+
 
 # DeliveryDay in DB: 0=Sun, 1=Mon and so on
 # Special condition check - if user was delivered this week and they changed their preference after
