@@ -7,7 +7,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email import encoders
-import psycopg2
+import psycopg2 
 import json
 from datetime import datetime
 
@@ -28,18 +28,17 @@ def update_db(user_id, episode_title, email_description, episode_number, episode
         } for _, row in email_description.iterrows()]
 
         cursor.execute("""
-            INSERT INTO podcasts (title, articles, episode_number, episode_type, mp3_file_url, date, completed)
-            VALUES (%s, %s::jsonb, %s, %s, %s, %s, %s)
+            INSERT INTO podcasts (title, user_id, articles, episode_number, episode_type, mp3_file_url, date, completed)
+            VALUES (%s, %s, %s::jsonb, %s, %s, %s, %s, %s)
             RETURNING id
-        """, (episode_title, articles_list, episode_number, episode_type, mp3_file_url, datetime.now(), False))
+        """, (episode_title, user_id, json.dumps(articles_list), episode_number, episode_type, mp3_file_url, datetime.now(), False))
         
         podcast_id = cursor.fetchone()[0]
 
         # Update user's podcast array with the new podcast id
         cursor.execute("""
             UPDATE users 
-            SET podcasts = podcasts || %s,
-                episode = episode + 1,
+            SET episode = episode + 1,
                 delivered = %s
             WHERE id = %s
         """, (podcast_id, datetime.now(), user_id))
@@ -135,7 +134,7 @@ def handler(payload):
     episode = payload.get("episode")
     ep_type = payload.get("ep_type")
 
-    headers = EmailOutput(user_id)
+    headers = EmailOutput(user_id, episode)
     email_description = headers.email_description
     episode_title = headers.episode_title
 
@@ -147,7 +146,7 @@ def handler(payload):
 
     s3_url = common.s3.get_s3_url(user_id, episode, "PODCAST")
     print(f"S3 URL: {s3_url}")
-    # Update podcast and user tables
+    # Update podcast and user tables 
     update_db(user_id, episode_title, email_description, episode, ep_type, s3_url)
 
 if __name__ == "__main__":

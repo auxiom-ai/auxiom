@@ -21,7 +21,6 @@ export const users = pgTable('users', {
   activeNotes: jsonb('active_notes').notNull().default([]),
   episode: integer('episode').notNull().default(1),
   verified: boolean('verified').notNull().default(false),
-  podcasts: jsonb('podcasts').notNull().default([]),
 });
 
 // Email table for newsletter
@@ -34,6 +33,7 @@ export const emails = pgTable('emails', {
 // Podcasts table for storing podcast episodes
 export const podcasts = pgTable('podcasts', {
   id: serial('id').primaryKey(),
+  user_id: integer('user_id').notNull(),
   title: varchar('title', { length: 255 }).notNull(),
   articles: jsonb('articles').notNull(),
   episodeNumber: integer('episode_number').notNull(),

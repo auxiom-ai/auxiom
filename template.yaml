@@ -1,12 +1,13 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
+
 Globals:
   Function:
     Environment:
       Variables:
         AWS_REGION: us-east-1
-        BUCKET_NAME:
-          Ref: ServiceBucket
+        BUCKET_NAME: !Ref ServiceBucket
+
 Resources:
   ServiceTierFunction:
     Type: AWS::Serverless::Function
@@ -18,23 +19,18 @@ Resources:
         Variables:
           STAGE: local
       Policies:
-      - S3ReadPolicy:
-          BucketName:
-            Ref: ServiceBucket
+        - S3ReadPolicy:
+            BucketName: !Ref ServiceBucket
       Events:
         SQSEvent:
           Type: SQS
           Properties:
-            Queue:
-              Fn::GetAtt:
-              - ServiceTierQueue
-              - Arn
+            Queue: !GetAtt ServiceTierQueue.Arn
             BatchSize: 1
-      ImageUri: servicetierfunction:latest
     Metadata:
-      DockerContext: /home/rahilv99/auxiom/src/service_tier
+      DockerContext: ./src/service_tier
       Dockerfile: Dockerfile
-      SamResourceId: ServiceTierFunction
+
   CronFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -49,17 +45,16 @@ Resources:
           Type: Schedule
           Properties:
             Schedule: rate(1 hour)
-      ImageUri: cronfunction:latest
     Metadata:
-      DockerContext: /home/rahilv99/auxiom/src/cron
+      DockerContext: ./src/cron
       Dockerfile: Dockerfile
-      SamResourceId: CronFunction
+
   ServiceTierQueue:
     Type: AWS::SQS::Queue
     Properties:
       VisibilityTimeout: 300
+
   ServiceBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName:
-        Fn::Sub: ${AWS::StackName}-bucket
+      BucketName: !Sub ${AWS::StackName}-bucket

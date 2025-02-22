@@ -131,6 +131,7 @@ def academic_segment(text, title, plan = 'free'):
         - Since this is for a text-to-speech model, use short sentences, omit any non-verbal cues, complex sentences/phrases, or acronyms.
         - Sound human-like, be original and dynamic in the conversation.
         - Include filler words like 'uh' or repeat words in the sentences to make the conversation more natural.
+        - Insert pauses using a hypen (-) to indicate a pause.
 
         Example: 
         **HOST 1**: Moving on, we have an article about X titled Y.

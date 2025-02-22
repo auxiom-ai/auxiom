@@ -1,0 +1,16 @@
+version = 0.1
+[default]
+[default.global.parameters]
+stack_name = "auxiom-local"
+
+[default.build.parameters]
+cached = true
+parallel = true
+
+[default.local_start_api.parameters]
+warm_containers = "EAGER"
+docker_network = "auxiom-local"
+
+[default.local_start_lambda.parameters]
+warm_containers = "EAGER"
+docker_network = "auxiom-local"

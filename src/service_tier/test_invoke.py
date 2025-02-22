@@ -34,7 +34,7 @@ nlp_json = {
         "user_email": "rahilv99@gmail.com",
         "plan": "plus",
         "episode": "1",
-        "type": "pulse"
+        "ep_type": "pulse"
     }
 }
 
@@ -44,7 +44,7 @@ email_json = {
         "user_id": "5678",
         "user_email": "rahilv99@gmail.com",
         "episode": "1",
-        "type": "pulse"
+        "ep_type": "pulse"
     }
 }
 

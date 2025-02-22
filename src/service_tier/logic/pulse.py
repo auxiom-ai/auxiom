@@ -254,7 +254,7 @@ def handler(payload):
                 "user_email": user_email,
                 "plan": plan,
                 "episode": episode,
-                "type": "pulse",
+                "ep_type": "pulse",
                 "industry": industry
             }
         }
