@@ -14,7 +14,7 @@ def s3LocationMapping(user_id, episode_number, type):
     elif (type == "EMAIL"):
         return f"user/{user_id}/{episode_number}/email.pkl"
     elif (type == "PODCAST"):
-        return f"user/{user_id}/{episode_number}/podcast.mp3"
+        return f"user/{user_id}/{episode_number}/podcast.wav"
     else:
         print(f"Unsupported type {type}")
 
@@ -79,7 +79,7 @@ def restore(user_id, episode_number, type, f_path):
     
 
 def restore_from_system(type, f_path):
-    object_key = "system/intro_music.mp3"
+    object_key = "system/intro_music.wav"
     # Download data from S3
     s3 = boto3.client('s3')
 

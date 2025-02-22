@@ -9,8 +9,7 @@ import google.generativeai as genai
 # merge chunks
 from pydub import AudioSegment
 import os
-from openai import OpenAI
-
+from cartesia import Cartesia
 import time
 from threading import Lock
 
@@ -25,8 +24,8 @@ TEMP_BASE = "/tmp"
 GOOGLE_API_KEY= os.environ.get('GOOGLE_API_KEY')
 genai.configure(api_key=GOOGLE_API_KEY)
 
-summary_model = genai.GenerativeModel('gemini-2.0-flash') # 15 RPM, $0.030 /million output tokens for higher RPM
-script_model = genai.GenerativeModel('gemini-1.5-pro') # 2 RPM, $5 /million output tokens for higher RPM
+summary_model = genai.GenerativeModel('gemini-1.5-flash') # 15 RPM, $0.030 /million output tokens for higher RPM
+script_model = genai.GenerativeModel('gemini-2.0-flash') # 2 RPM, $5 /million output tokens for higher RPM
 
 # implement counters to ensure we are below rate limits
 # Global rate-limit counters and locks
@@ -117,10 +116,9 @@ def academic_segment(text, title, plan = 'free'):
 
     system_prompt =f"""
         You are a professional podcast script writer for a podcast named Auxiom. Your task is to write a single section of a script to be sent to a text-to-speech model where 
-        **HOST 1** (Mia) and **HOST 2** (Leo) have an academic dialouge using the article below. 
+        **HOST 1** and **HOST 2** have an academic dialouge using the article below. 
         FORMAT
         - Mark the script with **HOST 1** and **HOST 2** for each conversational turn
-        - HOST 1 = Mia and HOST 2 = Leo
         - This is an intermeadiate segment. Only include the segment itself. avoid any introductions, explanations, or meta-comments
         EXTRACT FROM TEXT
         - Use specific details from the text relevant to the goals, methods, and results
@@ -144,13 +142,11 @@ def academic_segment(text, title, plan = 'free'):
         Text: {text}"""
 
     if plan == 'free':
-        enforce_rate_limit("summary_model")
         response = summary_model.generate_content(system_prompt, 
                                             generation_config = genai.GenerationConfig(
                                             max_output_tokens=tokens+50,
                                             temperature=0.3))
     else: # premium
-        enforce_rate_limit("script_model")
         response = script_model.generate_content(system_prompt, 
                                             generation_config = genai.GenerationConfig(
                                             max_output_tokens=tokens+100,
@@ -162,10 +158,9 @@ def academic_segment(text, title, plan = 'free'):
 def review_script(script, tokens):
     prompt = f"Review the script for the podcast episode, for input to a text-to-speech model. Refine any wording that may be difficult for a text-to-speech model.\
               Make sure the content flows well and is engaging. Ensure the structure is marked with **HOST 1** and **HOST 2** at each conversational turn. \
-              Remove or replace acronyms where necessary. Do not add any unecessary phrases; this will be fed directly to a text-to-speech model.\
+              Remove or replace acronyms where necessary. Delete quotation marks. Do not add any unecessary phrases; this will be fed directly to a text-to-speech model.\
         Script: {script}"
 
-    enforce_rate_limit("script_model")
     response = script_model.generate_content(prompt, generation_config = genai.GenerationConfig(
                                         max_output_tokens=tokens+250,
                                         temperature=0.10))
@@ -193,7 +188,6 @@ def make_script(texts, titles, name, plan = 'free'):
     - The scripts should be marked according to the FORMAT below
     FORMAT
     - The script should be marked with **HOST 1** and **HOST 2** for each conversational turn
-    - HOST 1 = Mia and HOST 2 = Leo
     - Make the conversation {tokens} tokens long.
     TASK
     - Merge the components, ensure the format is consistent (as above)
@@ -214,7 +208,6 @@ Articles: """
     for i in range(len(segments)):
         system_prompt += f" Article {i} - {titles[i]}: {segments[i]}"     
        
-    enforce_rate_limit("script_model")
     response = script_model.generate_content(system_prompt, 
                                       generation_config = genai.GenerationConfig(
                                         max_output_tokens=tokens+100,
@@ -288,31 +281,37 @@ def clean_text_for_conversational_tts(input_text):
 
 def create_conversational_podcast(all_data, name, plan='free'):
 
-    def _create_line(client, host, line, num, chunk):
+    def _create_line(client, host, line, num):
 
         if host == 1:
             # female
-            voice = 'nova'
+            voice = '156fb8d2-335b-4950-9cb3-a2d33befec77'
         else: # host = 2
             # male
-            voice = 'onyx'
+            voice = '729651dc-c6c3-4ee5-97fa-350da1f88600'
 
-        output_file = f"{TEMP_BASE}/conversation/{host}/line_{num}_{chunk}.mp3"
+        output_file = f"{TEMP_BASE}/conversation/{host}/line_{num}.wav"
 
          # Ensure the output directory exists
         output_dir = os.path.dirname(output_file)
         os.makedirs(output_dir, exist_ok=True)
         
         try:
-            response = client.audio.speech.create(
-                model="tts-1",
-                voice=voice,
-                input=line
+            audio_bytes = client.tts.bytes(
+                model_id="sonic-english",
+                transcript=line,
+                voice_id=voice,
+                language="en",
+                output_format={
+                    "container": "wav",
+                    "sample_rate": 44100,
+                    "encoding": "pcm_s16le", 
+                },
             )
 
             # Save the response content (audio) to a file
             with open(output_file, "wb") as audio_file:
-                audio_file.write(response.content)
+                audio_file.write(audio_bytes)
 
             print(f"Audio file saved as {output_file}")
 
@@ -327,37 +326,11 @@ def create_conversational_podcast(all_data, name, plan='free'):
     script = generate_script(all_data, name, plan=plan)
     turns = clean_text_for_conversational_tts(script)
 
-    key = os.environ.get("OPENAI_API_KEY")
-    client = OpenAI(api_key=key)
+    client = Cartesia(api_key=os.environ.get('CARTESIA_API_KEY'))
 
     for index, sentence in enumerate(turns):
         host = 1 if index % 2 == 0 else 2
-
-        # handle lines longer than API limit
-        if len(sentence) > 4096:
-            # Chunk into 4096 characters
-            chunks = [sentence[i:i + 4096] for i in range(0, len(sentence), 4096)]
-
-            for chunk_index, chunk in enumerate(chunks):
-                _create_line(client, host, chunk, index, chunk_index)
-
-            chunk_files = [f"{TEMP_BASE}/conversation/{host}/line_{index}_{i}.mp3" for i in range(len(chunks))]
-            combined_audio = AudioSegment.empty()
-            for file in chunk_files:
-                audio_segment = AudioSegment.from_mp3(file)
-                combined_audio += audio_segment
-
-            print(f"Combined chunked audio for line {index}")
-            combined_output_file = f"{TEMP_BASE}/conversation/{host}/line_{index}_0.mp3"
-            combined_audio.export(combined_output_file, format="mp3")
-
-            # Clean up individual chunk files
-            for file in chunk_files:
-                os.remove(file)
-        else:
-            _create_line(client, host, sentence, index, 0)
-
-        time.sleep(60 / 500)  # rate limit = 500 requests per minute
+        _create_line(client, host, sentence, index)
 
     return len(turns)
 
@@ -366,28 +339,26 @@ def write_to_s3(num_turns, user_id, episode_number):
     # Create a new AudioSegment object
     print("Merging audio files...")
 
-    final_audio = AudioSegment.from_mp3(f"{TEMP_BASE}/conversation/1/line_0_0.mp3")
+    final_audio = AudioSegment.from_wav(f"{TEMP_BASE}/conversation/1/line_0.wav")
     for i in range(1, num_turns):
 
-        audio = AudioSegment.from_mp3(f"{TEMP_BASE}/conversation/{1 if i % 2 == 0 else 2}/line_{i}_0.mp3")
-        # clean up -- TURN ON IF TESTING LOCAL
-        #os.remove(f"data/conversation/{1 if i % 2 == 0 else 2}/line_{i}_0.mp3")
+        audio = AudioSegment.from_wav(f"{TEMP_BASE}/conversation/{1 if i % 2 == 0 else 2}/line_{i}.wav")
 
         final_audio = final_audio.append(audio)
 
     print("Audio files merged.")
     # add intro music
     # Load the intro music from s3
-    common.s3.restore_from_system("INTRO", f"{TEMP_BASE}/intro_music.mp3")
+    common.s3.restore_from_system("INTRO", f"{TEMP_BASE}/intro_music.wav")
 
-    intro_music = AudioSegment.from_file(f"{TEMP_BASE}/intro_music.mp3")
+    intro_music = AudioSegment.from_file(f"{TEMP_BASE}/intro_music.wav")
     final_audio = intro_music.append(final_audio, crossfade=1000)
 
     print("Intro music added.")
-    final_audio.export(f"{TEMP_BASE}/podcast.mp3", format="mp3")
-    print(f"Conversation audio file saved as {TEMP_BASE}/podcast.mp3")
+    final_audio.export(f"{TEMP_BASE}/podcast.wav", format="wav")
+    print(f"Conversation audio file saved as {TEMP_BASE}/podcast.wav")
     # Export the final audio
-    common.s3.save(user_id, episode_number, "PODCAST", f"{TEMP_BASE}/podcast.mp3")
+    common.s3.save(user_id, episode_number, "PODCAST", f"{TEMP_BASE}/podcast.wav")
 
     print("Audio file uploaded to S3.")
 
@@ -405,6 +376,8 @@ def handler(payload):
 
     if plan == 'free':
         all_data = all_data.head(3)
+    
+    user_name = user_name.split(' ')[0]
 
     num_turns = create_conversational_podcast(all_data, user_name, plan = plan)
 

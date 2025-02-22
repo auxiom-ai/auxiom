@@ -30,7 +30,7 @@ export class ServiceTierLambdaStack extends cdk.Stack {
         ASTRA_QUEUE_URL: props.coreStack.astraSQSQueue.queueUrl,
         SEMANTIC_SCHOLAR_API_KEY: process.env.SEMANTIC_SCHOLAR_API_KEY!,
         GOOGLE_API_KEY: process.env.GOOGLE_API_KEY!,
-        OPENAI_API_KEY: process.env.OPENAI_API_KEY!,
+        CARTESIA_API_KEY: process.env.CARTESIA_API_KEY!,
         PERPLEXITY_API_KEY: process.env.PERPLEXITY_API_KEY!,
       },
       role: props.coreStack.astraLambdaRole,

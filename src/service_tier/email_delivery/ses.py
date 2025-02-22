@@ -10,13 +10,13 @@ from email import encoders
 import psycopg2 
 import json
 from datetime import datetime
-
+from pydub import AudioSegment
 from email_delivery.email_output import EmailOutput
 import common.s3
 
 db_access_url = "postgresql://auxiompostgres:astrapodcast!@auxiom-db.cvoqq0ms6fsc.us-east-1.rds.amazonaws.com:5432/postgres"
 
-def update_db(user_id, episode_title, email_description, episode_number, episode_type, mp3_file_url):
+def update_db(user_id, episode_title, email_description, episode_number, episode_type, wav_file_url):
     try:
         conn = psycopg2.connect(dsn=db_access_url)
         cursor = conn.cursor()
@@ -28,10 +28,10 @@ def update_db(user_id, episode_title, email_description, episode_number, episode
         } for _, row in email_description.iterrows()]
 
         cursor.execute("""
-            INSERT INTO podcasts (title, user_id, articles, episode_number, episode_type, mp3_file_url, date, completed)
+            INSERT INTO podcasts (title, user_id, articles, episode_number, episode_type, audio_file_url, date, completed)
             VALUES (%s, %s, %s::jsonb, %s, %s, %s, %s, %s)
             RETURNING id
-        """, (episode_title, user_id, json.dumps(articles_list), episode_number, episode_type, mp3_file_url, datetime.now(), False))
+        """, (episode_title, user_id, json.dumps(articles_list), episode_number, episode_type, wav_file_url, datetime.now(), False))
         
         podcast_id = cursor.fetchone()[0]
 
@@ -105,10 +105,10 @@ def send_email(RECIPIENT, SUBJECT, BODY_HTML):
 
     # Send the email
     client = boto3.client('ses',
-                        region_name="us-east-1",
-                        aws_access_key_id= os.environ.get('AWS_ACCESS_KEY'), # make sure these are set
-                        aws_secret_access_key= os.environ.get('AWS_SECRET_KEY') # make sure these are set
-                        )
+        region_name="us-east-1",
+        aws_access_key_id= os.environ.get('AWS_ACCESS_KEY'), # make sure these are set
+        aws_secret_access_key= os.environ.get('AWS_SECRET_KEY') # make sure these are set
+        )
 
     try:
         response = client.send_raw_email(
@@ -138,7 +138,13 @@ def handler(payload):
     email_description = headers.email_description
     episode_title = headers.episode_title
 
-    common.s3.restore(user_id, episode,"PODCAST", "/tmp/podcast.mp3")
+    common.s3.restore(user_id, episode,"PODCAST", "/tmp/podcast.wav")
+
+    # Convert wav to mp3
+    wav_file_path = "/tmp/podcast.wav"
+    mp3_file_path = "/tmp/podcast.mp3"
+    audio = AudioSegment.from_wav(wav_file_path)
+    audio.export(mp3_file_path, format="mp3")
 
     html = generate_html(episode_title, email_description, episode)
 

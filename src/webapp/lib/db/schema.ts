@@ -38,7 +38,7 @@ export const podcasts = pgTable('podcasts', {
   articles: jsonb('articles').notNull(),
   episodeNumber: integer('episode_number').notNull(),
   episodeType: varchar('episode_type', { length: 255 }).notNull(),
-  mp3FileUrl: varchar('mp3_file_url', { length: 512 }).notNull(),
+  audioFileUrl: varchar('audio_file_url', { length: 512 }).notNull(),
   date: timestamp('date').notNull().default(new Date()),
   completed: boolean('completed').notNull().default(false)
 });
