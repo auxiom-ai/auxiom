@@ -110,9 +110,9 @@ def summarize(title, text, use = 'summary'):
 ### Single article podcast segment
 def academic_segment(text, title, plan = 'free'):
     if plan == 'free':
-        tokens = 180 # ~ 1:20 minute
+        tokens = 220
     else: # premium
-        tokens = 250 # ~ 1:40 minutes
+        tokens = 250
 
     system_prompt =f"""
         You are a professional podcast script writer for a podcast named Auxiom. Your task is to write a single section of a script to be sent to a text-to-speech model where 
@@ -168,10 +168,10 @@ def review_script(script, tokens):
 
 def make_script(texts, titles, name, plan = 'free'):
     if plan == 'plus':
-        tokens = 1600
+        tokens = 1500
         summaries = summaries
     else: # free
-        tokens = 800
+        tokens = 1000
         texts = texts[:3]
 
     segments = []
@@ -192,13 +192,12 @@ def make_script(texts, titles, name, plan = 'free'):
     TASK
     - Merge the components, ensure the format is consistent (as above)
     - Refine the content to be more engaging
-    - OPEN WITH: Hello {name}, welcome back to Auxiom!
-    - CLOST WITH: 'Thanks for listening, stay tuned for more episodes.'
+    - CLOSE WITH: 'Thanks for listening, stay tuned for more episodes.'
     SPEECH TIPS
     - Since this is for a text-to-speech model, use short sentences, omit any non-verbal cues, complex sentences/phrases, or acronyms.
     
     Example: 
-    **HOST 1**: Hello {name}! Today we have an article about X...
+    **HOST 1**: Welcome back to Auxiom! Today we have an article about X...
     **HOST 2 **: That's right. The article discusses Y...
     **HOST 1**: How does this article relate to Z?
     ...
@@ -260,9 +259,6 @@ def clean_text_for_conversational_tts(input_text):
     for statement in statements:
         # Remove :
         statement = statement.replace(':', '')
-        # Remove (Leo): and (Mia): if exist
-        ret = statement.replace('(Leo)', '').replace('(Mia)', '')
-
         # Replace '\n' with a space
         ret = ret.replace('\n', ' ')
         # remove '& 1' or '& 2'

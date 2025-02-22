@@ -41,7 +41,7 @@ def update_db(user_id, episode_title, email_description, episode_number, episode
             SET episode = episode + 1,
                 delivered = %s
             WHERE id = %s
-        """, (podcast_id, datetime.now(), user_id))
+        """, (datetime.now(), user_id))
 
         conn.commit()
         print(f"Successfully updated podcast and user tables for user {user_id}")

@@ -223,7 +223,7 @@ def handler(payload):
     user_embeddings = MODEL.encode(" ".join(user_input), convert_to_tensor=True)
     data = {'user_input': user_input, 'user_embeddings': user_embeddings, 'industry': industry}
 
-    user_topics_output = UserTopicsOutput(data)
+    user_topics_output = UserTopicsOutput(episode, user_id)
     pubmed = PubMed(user_topics_output)
     sem = Sem(user_topics_output)
     alpha = AlphaVantage(user_topics_output)
