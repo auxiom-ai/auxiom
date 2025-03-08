@@ -1,5 +1,5 @@
 import { db } from './drizzle';
-import { users, emails } from './schema';
+import { users, emails, podcasts } from './schema';
 import { eq } from 'drizzle-orm';
 import type { User, NewUser } from './schema';
 import { cookies } from 'next/headers';
@@ -99,4 +99,15 @@ export async function addEmailToNewsletter(email: string) {
   }
 
   return await db.insert(emails).values({ email, subscribed: true }).returning();
+}
+
+
+// Get podcasts for user by id
+export async function fetchUserPodcasts(userId: number) {
+  return await db.select().from(podcasts).where(eq(podcasts.user_id, userId));
+}
+
+// Update a podcast's listened status
+export async function updateListened(podcastId: number) {
+  return await db.update(podcasts).set({ completed: true }).where(eq(podcasts.id, podcastId)).returning();
 }

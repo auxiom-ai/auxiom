@@ -13,7 +13,7 @@ export function SubmitButton({ display }: { display: string }) {
 
   const handleClick = () => {
     if (currentPlan) {
-      redirect('/dashboard/pulse');
+      redirect('/dashboard/podcasts');
     }
   };
 

@@ -260,17 +260,17 @@ def clean_text_for_conversational_tts(input_text):
         # Remove :
         statement = statement.replace(':', '')
         # Replace '\n' with a space
-        ret = ret.replace('\n', ' ')
+        statement = statement.replace('\n', ' ')
         # remove '& 1' or '& 2'
-        ret = re.sub(r'& \d', '', ret)
+        statement = re.sub(r'& \d', '', statement)
         # Remove Markdown-style (*)
-        ret = re.sub(r'\*\*\:', '', ret)
-        ret = re.sub(r'\*', '', ret)
+        statement = re.sub(r'\*\*\:', '', statement)
+        statement = re.sub(r'\*', '', statement)
         # Ensure no extra spaces
-        ret = re.sub(r'\s+', ' ', ret).strip()
+        statement = re.sub(r'\s+', ' ', statement).strip()
         
-        if ret != '':
-          output_text.append(ret)
+        if statement != '':
+          output_text.append(statement)
 
     print(output_text)
     return output_text

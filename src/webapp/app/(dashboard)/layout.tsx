@@ -34,7 +34,7 @@ function NavDropdown({ user }: { user: any }) {
         </DropdownMenuItem>
         <DropdownMenuItem>
           {user ? (
-            <Link href="/dashboard/pulse" className="flex items-center">
+            <Link href="/dashboard/podcasts" className="flex items-center">
               <LayoutDashboard className="mr-2 h-4 w-4" />
               Dashboard
             </Link>
@@ -77,7 +77,7 @@ function Header() {
                   asChild
                   className="bg-gray-800 hover:bg-gray-600 text-white text-sm px-4 py-2 rounded-full transition duration-300"
                 >
-                  <ActionLink href="/dashboard/pulse" icon={LayoutDashboard}>Dashboard</ActionLink>
+                  <ActionLink href="/dashboard/podcasts" icon={LayoutDashboard}>Dashboard</ActionLink>
                 </Button>
               ) : (
                 <Button
@@ -99,7 +99,7 @@ function Header() {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex flex-col min-h-screen bg-amber-100/40">
+    <div className="flex flex-col min-h-screen bg-amber-100/30">
       <Header />
       <main className="flex-grow">
         {children}

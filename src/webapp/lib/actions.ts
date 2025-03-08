@@ -7,11 +7,12 @@ import {
   User,
   users,
   type NewUser,
+  podcasts,
 } from '@/lib/db/schema';
 import { comparePasswords, hashPassword, setSession } from '@/lib/auth/session';
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
-import { getUserByEmail, createUser, getUser, updateUser, addEmailToNewsletter } from '@/lib/db/queries';
+import { getUserByEmail, createUser, getUser, updateUser, addEmailToNewsletter, updateListened } from '@/lib/db/queries';
 import {
   validatedAction,
 } from '@/lib/auth/middleware';
@@ -169,7 +170,7 @@ async function sendVerificationEmail(email: string, userId: number) {
                     </div>
                     <div class="footer">
                         <p>If you did not sign up for this account, please ignore this email.</p>
-                        <p>Copyright © 2025 Auxiom, all rights reserved.</p>
+                        <p>Copyright 2025 Auxiom, all rights reserved.</p>
                     </div>
                 </div>
             </body>
@@ -214,7 +215,7 @@ export async function verifyEmail(token: string) {
   if (user[0].active === false) {
     redirect('/identity');
   } else {
-    redirect('/dashboard/pulse');
+    redirect('/dashboard/podcasts');
   }
 }
 
@@ -335,7 +336,7 @@ export const forgotPassword = validatedAction(forgotPasswordSchema, async (data,
                     </div>
                     <div class="footer">
                         <p>If you didn’t request a password reset, you can safely ignore this email.</p>
-                        <p>Copyright © 2025 Auxiom, all rights reserved.</p>
+                        <p>Copyright 2025 Auxiom, all rights reserved.</p>
                     </div>
                 </div>
             </body>
@@ -419,7 +420,7 @@ export const signIn = validatedAction(signInSchema, async (data, formData) => {
     setSession(foundUser)
   ]);
 
-  redirect(redirectUrl || '/dashboard/pulse');
+  redirect(redirectUrl || '/dashboard/podcasts');
 });
 
 
@@ -711,4 +712,15 @@ export async function getCurrentPlan(): Promise<string> {
   }
 
   return user.plan;
+}
+
+export async function setListened(podcastId: number) {
+  
+  const res = await updateListened(podcastId);
+
+  if (res.length === 0) {
+    return { error: 'Podcast not found.' };
+  } else {
+    return { success: 'Podcast marked as listened.' };
+  }
 }

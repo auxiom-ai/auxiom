@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
       .where(eq(users.id, user[0].id));
 
     await setSession(user[0]);
-    return NextResponse.redirect(new URL('/dashboard/pulse', request.url));
+    return NextResponse.redirect(new URL('/dashboard/podcasts', request.url));
   } catch (error) {
     console.error('Error handling successful checkout:', error);
     return NextResponse.redirect(new URL('/error', request.url));

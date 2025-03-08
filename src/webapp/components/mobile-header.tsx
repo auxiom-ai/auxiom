@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Activity, TextSearch, Scroll, Settings, Menu } from 'lucide-react'
+import { Activity, TextSearch, Scroll, Settings, LibraryBig, Menu } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 
 const navItems = [
+  { name: "Podcasts", href: "/dashboard/podcasts", icon: LibraryBig },
   { name: "Pulse", href: "/dashboard/pulse", icon: Activity },
   { name: "Note", href: "/dashboard/note", icon: Scroll },
   { name: "Insight", href: "/dashboard/insight", icon: TextSearch },

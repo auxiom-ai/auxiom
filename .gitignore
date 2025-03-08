@@ -50,4 +50,4 @@ saved_model/
 auxiom_env
 
 # pycache
-__pycache__
+__pycache__cdk.out

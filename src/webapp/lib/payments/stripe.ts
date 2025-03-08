@@ -113,7 +113,7 @@ export async function createCustomerPortalSession(user: User) {
 
   return stripe.billingPortal.sessions.create({
     customer: user.stripeCustomerId,
-    return_url: `${process.env.BASE_URL}/dashboard/pulse`,
+    return_url: `${process.env.BASE_URL}/dashboard/podcasts`,
     configuration: configuration.id,
   });
 }
