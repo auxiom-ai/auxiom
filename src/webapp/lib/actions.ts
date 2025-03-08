@@ -457,6 +457,9 @@ export const signUp = validatedAction(signUpSchema, async (data) => {
 
   const createdUser = await createUser(newUser);
 
+  // Add to newsletter
+  await addEmailToNewsletter(email);
+
   // Send verification email
   await sendVerificationEmail(email, createdUser[0].id);
 
