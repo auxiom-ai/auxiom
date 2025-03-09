@@ -273,6 +273,7 @@ class UserTopicsOutput:
     def __init__(self, data):
         self.user_embeddings = data["user_embeddings"]
         self.user_input = data["user_input"]
+        self.industry = data["industry"]
 
 
 
