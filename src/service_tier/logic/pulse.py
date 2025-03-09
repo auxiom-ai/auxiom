@@ -34,8 +34,8 @@ INDUSTRY_MAP = {
   "Marketing": ["retail_wholesale"],
   "Manufacturing": ["manufacturing"],
   "Retail": ["retail_wholesale"],
-  "Entertainment": ["technology"],
-  "Free Thinker": ["technology", "life_sciences", "finance", "economy_macro"]
+  "Entertainment": [],
+  "Free Thinker": ["technology", "life_sciences", "finance", "economy_macro"] #what should I put here?
 }
 
 load_dotenv()  # Add this near the top of the file with other imports
@@ -171,10 +171,13 @@ class Sem(ArticleResource):
             print(f"Error in Semantic Scholar integration: {e}")
 
 # AlphaVantage Integration
-class UserTopicsOutput:
-    def __init__(self, data):
-        self.user_embeddings = data["user_embeddings"]
-        self.user_input = data["user_input"]
+class AlphaVantage(ArticleResource):
+    def __init__(self, user_topics_output):
+        super().__init__(user_topics_output)
+        self.api_key = os.environ.get('ALPHA_VANTAGE_API_KEY')
+        self.base_url = "https://www.alphavantage.co/query"
+        self.industry = user_topics_output.industry
+
     def get_articles(self):
         try:
             params = {
@@ -184,12 +187,10 @@ class UserTopicsOutput:
                 "limit": 500,
                 "time_from": self.time_constraint.strftime("%Y%m%dT%H%M"),
                 "time_to": self.today.strftime("%Y%m%dT%H%M"),
-                #"tickers": "AAPL" #specify tickers
             }
 
-            
-            # if self.user_input:
-            #     params["topics"] = ",".join(self.user_input)
+            if self.user_input:
+                params["topics"] = INDUSTRY_MAP[self.industry]
 
             # if self.user_input:
             #     params["tickers"] = ",".join()##Fill in with a getTickers function
@@ -220,8 +221,12 @@ def handler(payload):
     plan = payload.get("plan")
     episode = payload.get("episode")
     industry = payload.get("industry")
+    user_input = payload.get("user_input")
 
-    user_topics_output = UserTopicsOutput(user_id)
+    user_embeddings = MODEL.encode(" ".join(user_input), convert_to_tensor=True)
+    data = {'user_input': user_input, 'user_embeddings': user_embeddings, 'industry': industry}
+
+    user_topics_output = UserTopicsOutput(data)
     pubmed = PubMed(user_topics_output)
     sem = Sem(user_topics_output)
     alpha = AlphaVantage(user_topics_output)
@@ -252,7 +257,8 @@ def handler(payload):
                 "user_email": user_email,
                 "plan": plan,
                 "episode": episode,
-                "type": "pulse"
+                "type": "pulse",
+                "industry": industry
             }
         }
         common.sqs.send_to_sqs(next_event)
@@ -265,33 +271,33 @@ class UserTopicsOutput:
     def __init__(self, data):
         self.user_embeddings = data["user_embeddings"]
         self.user_input = data["user_input"]
+        self.industry = data["industry"]
 
 
 if __name__ == "__main__":
     print('In pulse!')
 
-    user_input = ['Brain Computer Interfaces', 'Google Cloud']
+    user_input = ['poop', 'pee', 'fart']
     user_input = [topic.lower() for topic in user_input]
-    industry = 'Technology'
     user_embeddings = MODEL.encode(
         " ".join(user_input), convert_to_tensor=True)
 
-    data = {'user_input': user_input, 'user_embeddings': user_embeddings}
+    data = {'user_input': user_input, 'user_embeddings': user_embeddings, 'industry': 'Marketing'}
 
     user_topics = UserTopicsOutput(data)
-
     pubmed = PubMed(user_topics)
     sem = Sem(user_topics)
     alpha = AlphaVantage(user_topics)
 
-    pubmed.get_articles()
-    sem.get_articles()
+    # pubmed.get_articles()
+    # sem.get_articles()
     alpha.get_articles()
 
-    pubmed.rank_data()
-    sem.rank_data()
+    # pubmed.rank_data()
+    # sem.rank_data()
     alpha.rank_data()
 
-    final_df = ArticleResource.finalize_df([pubmed, sem, alpha])
+    # final_df = ArticleResource.finalize_df([pubmed, sem, alpha])
+    #final_df = ArticleResource.finalize_df([alpha])
     # final_df.to_csv('./data/final_df.csv', index=False)
-    print(final_df)
+    print(alpha.get_articles())
