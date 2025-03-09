@@ -103,8 +103,6 @@ class ArticleResource:
                            random.uniform(0, 1), MAX_DELAY))
 
 # PubMed Integration
-
-
 class PubMed(ArticleResource):
     def __init__(self, user_topics_output):
         super().__init__(user_topics_output)
@@ -142,7 +140,6 @@ class PubMed(ArticleResource):
                 print(f"Error fetching PubMed articles: {e}")
         except Exception as e:
             print(f"Error in PubMed integration: {e}")
-
 
 # Semantic Scholar Integration
 class Sem(ArticleResource):
