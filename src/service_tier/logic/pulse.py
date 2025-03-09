@@ -24,6 +24,19 @@ MODEL = SentenceTransformer('all-MiniLM-L6-v2')
 MAX_RETRIES = 10
 BASE_DELAY = 0.33
 MAX_DELAY = 15
+INDUSTRY_MAP = {
+  "Technology": ["technology", "blockchain"],
+  "Healthcare": ["life_sciences"],
+  "Finance": ["finance", "financial_markets", "economy_fiscal", "economy_monetary", "economy_macro"],
+  "Consulting": ["economy_macro", "mergers_and_acquisitions"],
+  "Life Sciences": ["life_sciences"],
+  "Academia": ["life_sciences", "technology"],
+  "Marketing": ["retail_wholesale"],
+  "Manufacturing": ["manufacturing"],
+  "Retail": ["retail_wholesale"],
+  "Entertainment": ["technology"],
+  "Free Thinker": ["technology", "life_sciences", "finance", "economy_macro"]
+}
 
 load_dotenv()  # Add this near the top of the file with other imports
 
@@ -158,12 +171,10 @@ class Sem(ArticleResource):
             print(f"Error in Semantic Scholar integration: {e}")
 
 # AlphaVantage Integration
-class AlphaVantage(ArticleResource):
-    def __init__(self, user_topics_output):
-        super().__init__(user_topics_output)
-        self.api_key = os.environ.get('ALPHA_VANTAGE_API_KEY')
-        self.base_url = "https://www.alphavantage.co/query"
-
+class UserTopicsOutput:
+    def __init__(self, data):
+        self.user_embeddings = data["user_embeddings"]
+        self.user_input = data["user_input"]
     def get_articles(self):
         try:
             params = {
@@ -208,6 +219,7 @@ def handler(payload):
     user_email = payload.get("user_email")
     plan = payload.get("plan")
     episode = payload.get("episode")
+    industry = payload.get("industry")
 
     user_topics_output = UserTopicsOutput(user_id)
     pubmed = PubMed(user_topics_output)

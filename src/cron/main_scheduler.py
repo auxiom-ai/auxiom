@@ -25,7 +25,7 @@ def _handler(event, context):
     user_records = db_getusers(today_weekday)
     print(f"Got {len(user_records)} records from DB")
     for user in user_records:
-        user_id, name, email, plan, last_delivered_ts, episode = user
+        user_id, name, email, plan, last_delivered_ts, episode, industry = user
 
         name = name.split(' ')
         name = name[0]
@@ -41,7 +41,8 @@ def _handler(event, context):
                         "user_name": name,
                         "user_email": email,
                         "plan": plan,
-                        "episode": episode
+                        "episode": episode,
+                        "industry": industry
                     }
                 }
             )
