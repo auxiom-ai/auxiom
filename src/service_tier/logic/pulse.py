@@ -84,7 +84,6 @@ class ArticleResource:
         embeddings = MODEL.encode(entities_list, convert_to_tensor=True)
 
         self.articles_df['score'] = util.cos_sim(
-        self.articles_df['score'] = util.cos_sim(
             self.user_embeddings, embeddings).flatten().detach().cpu().numpy()
         self.articles_df.sort_values(by='score', ascending=False, inplace=True)
         self.articles_df = self.articles_df.head(5)
