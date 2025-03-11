@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "stocks" jsonb DEFAULT '[]'::jsonb NOT NULL;

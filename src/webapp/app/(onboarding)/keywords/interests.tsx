@@ -12,7 +12,7 @@ export function Interests() {
   const [keywords, setKeywords] = useState<string>(""); // State to store textarea input
   const [additionalKeywords, setAdditionalKeywords] = useState<string>(""); // State to store additional textarea input
   const router = useRouter();
-  const { setCurrentPage } = useOnboarding();
+  const { setCurrentPage, nextPage } = useOnboarding();
 
   const handleTextareaChange = (
     event: React.ChangeEvent<HTMLTextAreaElement>
@@ -28,7 +28,7 @@ export function Interests() {
 
   const handleSubmit = async () => {
     try {
-      const ret = await submitInterests(keywords);
+      const ret = await submitInterests({ keywords, additionalKeywords });
 
       if (ret.error) {
         toast({
@@ -41,9 +41,9 @@ export function Interests() {
           title: "Success",
           description: "Your interests have been saved.",
         });
-        
-        setCurrentPage(4);
-        router.push("/day");
+
+        setCurrentPage(5);
+        nextPage();
       }
     } catch (error) {
       console.error("Error submitting interests:", error);
@@ -57,7 +57,7 @@ export function Interests() {
 
   return (
     <main>
-      <section className="py-16">
+      <section className="py-8"> {/* Reduced padding here */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="lg:grid lg:grid-cols-2 lg:gap-8 lg:items-center">
             <div>
@@ -72,7 +72,7 @@ export function Interests() {
           </div>
         </div>
       </section>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-4">
         <div className="flex flex-wrap gap-2">
           <Textarea
             placeholder="Examples: Orbital Dynamics, Drug-Resistant Epilepsy, Game Theory, Combinatorics, Generative Image Models, etc."
@@ -82,12 +82,12 @@ export function Interests() {
           />
         </div>
       </div>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-4">
         <div className="lg:grid lg:grid-cols-2 lg:gap-8 lg:items-center mb-4">
           <div>
-            <h2 className="text-2xl font-bold text-black sm:text-3xl">
+            <p className="mt-4 text-base text-gray-700">
               Are you interested in any stocks? (optional)
-            </h2>
+            </p>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">

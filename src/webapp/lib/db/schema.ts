@@ -10,6 +10,7 @@ export const users = pgTable('users', {
   delivered: timestamp('delivered').notNull().default(new Date(0)),
   active: boolean('active').notNull().default(false),
   keywords: jsonb('keywords').notNull(),
+  stocks: text().array().$type<string[]>(),
   role: varchar('role', { length: 255 }).notNull().default('Other'),
   occupation: varchar('occupation', { length: 255 }),
   industry: varchar('industry', { length: 255 }),
