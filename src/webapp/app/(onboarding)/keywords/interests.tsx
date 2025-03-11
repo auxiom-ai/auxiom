@@ -10,6 +10,7 @@ import { useOnboarding } from "../context/OnboardingContext";
 export function Interests() {
   // we store roles right now because we may want to display a more complex page to professionals in the future
   const [keywords, setKeywords] = useState<string>(""); // State to store textarea input
+  const [additionalKeywords, setAdditionalKeywords] = useState<string>(""); // State to store additional textarea input
   const router = useRouter();
   const { setCurrentPage } = useOnboarding();
 
@@ -17,6 +18,12 @@ export function Interests() {
     event: React.ChangeEvent<HTMLTextAreaElement>
   ) => {
     setKeywords(event.target.value); // Update state when textarea changes
+  };
+
+  const handleAdditionalTextareaChange = (
+    event: React.ChangeEvent<HTMLTextAreaElement>
+  ) => {
+    setAdditionalKeywords(event.target.value); // Update state when additional textarea changes
   };
 
   const handleSubmit = async () => {
@@ -65,13 +72,30 @@ export function Interests() {
           </div>
         </div>
       </section>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-8">
         <div className="flex flex-wrap gap-2">
           <Textarea
             placeholder="Examples: Orbital Dynamics, Drug-Resistant Epilepsy, Game Theory, Combinatorics, Generative Image Models, etc."
             className="w-full h-40 text-black bg-black bg-opacity-10 rounded-xl p-8 backdrop-filter backdrop-blur-lg border-none"
             value={keywords} // Bind textarea value to state
             onChange={handleTextareaChange} // Update state on change
+          />
+        </div>
+      </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-8">
+        <div className="lg:grid lg:grid-cols-2 lg:gap-8 lg:items-center mb-4">
+          <div>
+            <h2 className="text-2xl font-bold text-black sm:text-3xl">
+              Are you interested in any stocks? (optional)
+            </h2>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Textarea
+            placeholder="Examples: AAPL, TSLA, AMZN, etc."
+            className="w-full h-40 text-black bg-black bg-opacity-10 rounded-xl p-8 backdrop-filter backdrop-blur-lg border-none"
+            value={additionalKeywords} // Bind additional textarea value to state
+            onChange={handleAdditionalTextareaChange} // Update state on change
           />
         </div>
       </div>
