@@ -33,8 +33,10 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
     } else if (page === 3) {
       redirect("/keywords")
     } else if (page === 4) {
-      redirect("/day")
-    }
+      redirect("/stocks")
+    } else if (page === 5) {
+    redirect("/day")
+  }
   }
 
   const handlePreviousPage = () => {
@@ -44,7 +46,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
   }
 
   const handleNextPage = () => {
-    if (currentPage < 4) {
+    if (currentPage < 5) {
       handlePageChange(currentPage + 1)
     }
   }
@@ -81,7 +83,10 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
                   <PaginationLink className="text-xl font-bold hover:bg-black hover:bg-opacity-10" href="/keywords" onClick={() => setCurrentPage(3)}>3</PaginationLink>
                 </PaginationItem>
                 <PaginationItem>
-                  <PaginationLink className="text-xl font-bold hover:bg-black hover:bg-opacity-10" href="/day" onClick={() => setCurrentPage(4)}>4</PaginationLink>
+                  <PaginationLink className="text-xl font-bold hover:bg-black hover:bg-opacity-10" href="/stocks" onClick={() => setCurrentPage(4)}>4</PaginationLink>
+                </PaginationItem>
+                <PaginationItem>
+                  <PaginationLink className="text-xl font-bold hover:bg-black hover:bg-opacity-10" href="/day" onClick={() => setCurrentPage(5)}>5</PaginationLink>
                 </PaginationItem>
                 <PaginationItem>
                   <PaginationNext className="text-xl font-bold hover:bg-black hover:bg-opacity-10" href="#" onClick={handleNextPage} />

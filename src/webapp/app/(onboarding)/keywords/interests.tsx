@@ -10,9 +10,8 @@ import { useOnboarding } from "../context/OnboardingContext";
 export function Interests() {
   // we store roles right now because we may want to display a more complex page to professionals in the future
   const [keywords, setKeywords] = useState<string>(""); // State to store textarea input
-  const [additionalKeywords, setAdditionalKeywords] = useState<string>(""); // State to store additional textarea input
   const router = useRouter();
-  const { setCurrentPage, nextPage } = useOnboarding();
+  const { setCurrentPage } = useOnboarding();
 
   const handleTextareaChange = (
     event: React.ChangeEvent<HTMLTextAreaElement>
@@ -20,15 +19,9 @@ export function Interests() {
     setKeywords(event.target.value); // Update state when textarea changes
   };
 
-  const handleAdditionalTextareaChange = (
-    event: React.ChangeEvent<HTMLTextAreaElement>
-  ) => {
-    setAdditionalKeywords(event.target.value); // Update state when additional textarea changes
-  };
-
   const handleSubmit = async () => {
     try {
-      const ret = await submitInterests({ keywords, additionalKeywords });
+      const ret = await submitInterests(keywords);
 
       if (ret.error) {
         toast({
@@ -41,9 +34,9 @@ export function Interests() {
           title: "Success",
           description: "Your interests have been saved.",
         });
-
-        setCurrentPage(5);
-        nextPage();
+        
+        setCurrentPage(4);
+        router.push("/onboarding/stocks"); // Ensure this line navigates to the stocks page
       }
     } catch (error) {
       console.error("Error submitting interests:", error);
@@ -57,7 +50,7 @@ export function Interests() {
 
   return (
     <main>
-      <section className="py-8"> {/* Reduced padding here */}
+      <section className="py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="lg:grid lg:grid-cols-2 lg:gap-8 lg:items-center">
             <div>
@@ -72,30 +65,13 @@ export function Interests() {
           </div>
         </div>
       </section>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-4">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-wrap gap-2">
           <Textarea
             placeholder="Examples: Orbital Dynamics, Drug-Resistant Epilepsy, Game Theory, Combinatorics, Generative Image Models, etc."
             className="w-full h-40 text-black bg-black bg-opacity-10 rounded-xl p-8 backdrop-filter backdrop-blur-lg border-none"
             value={keywords} // Bind textarea value to state
             onChange={handleTextareaChange} // Update state on change
-          />
-        </div>
-      </div>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-4">
-        <div className="lg:grid lg:grid-cols-2 lg:gap-8 lg:items-center mb-4">
-          <div>
-            <p className="mt-4 text-base text-gray-700">
-              Are you interested in any stocks? (optional)
-            </p>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Textarea
-            placeholder="Examples: AAPL, TSLA, AMZN, etc."
-            className="w-full h-40 text-black bg-black bg-opacity-10 rounded-xl p-8 backdrop-filter backdrop-blur-lg border-none"
-            value={additionalKeywords} // Bind additional textarea value to state
-            onChange={handleAdditionalTextareaChange} // Update state on change
           />
         </div>
       </div>

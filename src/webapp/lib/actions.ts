@@ -335,7 +335,7 @@ export const forgotPassword = validatedAction(forgotPasswordSchema, async (data,
                         <a href="${process.env.BASE_URL}/reset-password?token=${token}" class="button">Reset Password</a>
                     </div>
                     <div class="footer">
-                        <p>If you didn’t request a password reset, you can safely ignore this email.</p>
+                        <p>If you didn't request a password reset, you can safely ignore this email.</p>
                         <p>Copyright 2025 Auxiom, all rights reserved.</p>
                     </div>
                 </div>
@@ -718,7 +718,7 @@ export async function getCurrentPlan(): Promise<string> {
 }
 
 export async function setListened(podcastId: number) {
-  
+
   const res = await updateListened(podcastId);
 
   if (res.length === 0) {
@@ -726,4 +726,22 @@ export async function setListened(podcastId: number) {
   } else {
     return { success: 'Podcast marked as listened.' };
   }
+}
+
+export async function submitStocks(formData: { stocks: string }) {
+  const user = await getUser();
+  if (!user) {
+    redirect('/sign-in');
+  }
+
+  // Split the stocks string into an array, clean up whitespace, and filter out empty strings
+  const stocksList = formData.stocks
+    .split(',')
+    .map(stock => stock.trim().toUpperCase())
+    .filter(stock => stock !== '');
+
+  // Update the user's stocks in the database
+  await updateUser(user.id, { stocks: stocksList });
+
+  return { success: true, message: 'Stocks updated successfully' };
 }

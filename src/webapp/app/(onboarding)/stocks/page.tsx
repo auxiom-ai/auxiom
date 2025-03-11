@@ -1,6 +1,16 @@
-"use client";
-import { Stocks } from "./stocks";
+import { redirect } from 'next/navigation';
+import { getUser } from '@/lib/db/queries';
+import { Stocks } from './stocks';
 
-export default function StocksPage() {
-    return <Stocks />;
-} 
+export default async function Keywords() {
+  const user = await getUser();
+  if (!user) {
+    redirect('/sign-in');
+  }
+
+  return (
+    <div>
+      <Stocks/>
+    </div>
+  );
+}
