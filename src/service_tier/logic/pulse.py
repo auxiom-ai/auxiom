@@ -105,8 +105,6 @@ class ArticleResource:
                            random.uniform(0, 1), MAX_DELAY))
 
 # PubMed Integration
-
-
 class PubMed(ArticleResource):
     def __init__(self, user_topics_output):
         super().__init__(user_topics_output)
@@ -178,37 +176,43 @@ class AlphaVantage(ArticleResource):
         self.api_key = os.environ.get('ALPHA_VANTAGE_API_KEY')
         self.base_url = "https://www.alphavantage.co/query"
         self.industry = user_topics_output.industry
+        #self.stocks = user_topics_output.stocks
 
     def get_articles(self):
         try:
-            params = {
-                "function": "NEWS_SENTIMENT",
-                "apikey": self.api_key,
-                "sort": "RELEVANT",
-                "limit": 500,
-                "time_from": self.time_constraint.strftime("%Y%m%dT%H%M"),
-                "time_to": self.today.strftime("%Y%m%dT%H%M"),
-            }
+            all_rows = []
+            for topic in INDUSTRY_MAP[self.industry]:
+                params = {
+                    "function": "NEWS_SENTIMENT",
+                    "apikey": self.api_key,
+                    "sort": "RELEVANT",
+                    "limit": 500,
+                    "time_from": self.time_constraint.strftime("%Y%m%dT%H%M"),
+                    "time_to": self.today.strftime("%Y%m%dT%H%M"),
+                    "topics": topic
+                    #"tickers": "AAPL"
+                }
 
-            if self.user_input:
-                params["topics"] = INDUSTRY_MAP[self.industry]
+                # if self.user_input:
+                #     params["topics"] = INDUSTRY_MAP[self.industry]
 
-            # if self.user_input:
-            #     params["tickers"] = ",".join()##Fill in with a getTickers function
+                # if self.user_input:
+                #     params["tickers"] = [stock for stock in self.stocks]
 
-            response = self.fetch_with_retry(requests.get, self.base_url, params=params)
-            response.raise_for_status()
-            data = response.json()
+                response = self.fetch_with_retry(requests.get, self.base_url, params=params)
+                response.raise_for_status()
+                data = response.json()
+                print(data)
+                if "feed" in data:
+                    rows = [{
+                        'title': article.get('title', 'N/A'),
+                        'text': article.get('summary', ''),
+                        'url': article.get('url', '')
+                    } for article in data['feed']]
+                    all_rows.extend(rows)
 
-            if "feed" in data:
-                rows = [{
-                    'title': article.get('title', 'N/A'),
-                    'text': article.get('summary', ''),
-                    'url': article.get('url', '')
-                } for article in data['feed']]
-                
-                self.articles_df = pd.DataFrame(rows)
-                self.normalize_df()
+            self.articles_df = pd.DataFrame(all_rows)
+            self.normalize_df()
         except Exception as e:
             print(f"Error in AlphaVantage integration: {e}")
 
@@ -223,7 +227,8 @@ def handler(payload):
     episode = payload.get("episode")
     industry = payload.get("industry")
     user_input = payload.get("user_input")
-
+    #stocks = payload.get("stocks")
+    
     user_embeddings = MODEL.encode(" ".join(user_input), convert_to_tensor=True)
     data = {'user_input': user_input, 'user_embeddings': user_embeddings, 'industry': industry}
 
@@ -260,6 +265,7 @@ def handler(payload):
                 "episode": episode,
                 "ep_type": "pulse",
                 "industry": industry
+                #"stocks": stocks
             }
         }
         common.sqs.send_to_sqs(next_event)
@@ -273,25 +279,16 @@ class UserTopicsOutput:
         self.user_embeddings = data["user_embeddings"]
         self.user_input = data["user_input"]
         self.industry = data["industry"]
-
-
-
-class UserTopicsOutput:
-    def __init__(self, data):
-        self.user_embeddings = data["user_embeddings"]
-        self.user_input = data["user_input"]
-        self.industry = data["industry"]
+       # self.stocks = data.get("stocks", [])
 
 
 if __name__ == "__main__":
-    print('In pulse!')
-
     user_input = ['poop', 'pee', 'fart']
     user_input = [topic.lower() for topic in user_input]
     user_embeddings = MODEL.encode(
         " ".join(user_input), convert_to_tensor=True)
 
-    data = {'user_input': user_input, 'user_embeddings': user_embeddings, 'industry': 'Marketing'}
+    data = {'user_input': user_input, 'user_embeddings': user_embeddings, 'industry': 'Finance'}
 
     user_topics = UserTopicsOutput(data)
     pubmed = PubMed(user_topics)
