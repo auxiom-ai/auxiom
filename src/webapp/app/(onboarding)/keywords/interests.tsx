@@ -36,7 +36,7 @@ export function Interests() {
         });
         
         setCurrentPage(4);
-        router.push("/onboarding/stocks"); // Ensure this line navigates to the stocks page
+        router.push("/stocks"); // Update this line to navigate to stocks page
       }
     } catch (error) {
       console.error("Error submitting interests:", error);
