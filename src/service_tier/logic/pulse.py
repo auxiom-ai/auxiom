@@ -176,12 +176,12 @@ class AlphaVantage(ArticleResource):
         self.api_key = os.environ.get('ALPHA_VANTAGE_API_KEY')
         self.base_url = "https://www.alphavantage.co/query"
         self.industry = user_topics_output.industry
-        #self.stocks = user_topics_output.stocks
+        self.stocks = user_topics_output.stocks
 
     def get_articles(self):
         try:
             all_rows = []
-            for topic in INDUSTRY_MAP[self.industry]:
+            for topic in self.stocks:
                 params = {
                     "function": "NEWS_SENTIMENT",
                     "apikey": self.api_key,
@@ -189,12 +189,12 @@ class AlphaVantage(ArticleResource):
                     "limit": 500,
                     "time_from": self.time_constraint.strftime("%Y%m%dT%H%M"),
                     "time_to": self.today.strftime("%Y%m%dT%H%M"),
-                    "topics": topic
-                    #"tickers": "AAPL"
+                    #"topics": topic
+                    "tickers": topic
                 }
 
-                # if self.user_input:
-                #     params["topics"] = INDUSTRY_MAP[self.industry]
+                if self.user_input:
+                    params["topics"] = INDUSTRY_MAP[self.industry]
 
                 # if self.user_input:
                 #     params["tickers"] = [stock for stock in self.stocks]
@@ -227,7 +227,7 @@ def handler(payload):
     episode = payload.get("episode")
     industry = payload.get("industry")
     user_input = payload.get("user_input")
-    #stocks = payload.get("stocks")
+    stocks = payload.get("stocks")
     
     user_embeddings = MODEL.encode(" ".join(user_input), convert_to_tensor=True)
     data = {'user_input': user_input, 'user_embeddings': user_embeddings, 'industry': industry}
@@ -279,7 +279,7 @@ class UserTopicsOutput:
         self.user_embeddings = data["user_embeddings"]
         self.user_input = data["user_input"]
         self.industry = data["industry"]
-       # self.stocks = data.get("stocks", [])
+        self.stocks = data.get("stocks", [])
 
 
 if __name__ == "__main__":
@@ -288,7 +288,7 @@ if __name__ == "__main__":
     user_embeddings = MODEL.encode(
         " ".join(user_input), convert_to_tensor=True)
 
-    data = {'user_input': user_input, 'user_embeddings': user_embeddings, 'industry': 'Finance'}
+    data = {'user_input': user_input, 'user_embeddings': user_embeddings, 'industry': 'Finance', 'stocks':['AAPL']}
 
     user_topics = UserTopicsOutput(data)
     pubmed = PubMed(user_topics)
