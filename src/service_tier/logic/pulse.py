@@ -310,6 +310,13 @@ class Arxiv(ArticleResource):
     def __init__(self, user_topics_output):
         super().__init__(user_topics_output)
 
+    def calculate_relevance_score(self, result):
+        query_keywords = self.user_input  # Use user input as keywords
+        title = result.title.lower()
+        abstract = result.summary.lower()
+        score = sum(keyword in title or keyword in abstract for keyword in query_keywords)
+        return score
+
     def download_and_extract_arxiv_paper(self, query, max_results=5):
         seven_days_ago = datetime.now() - timedelta(days=7)
         utc_timezone = pytz.UTC
@@ -325,7 +332,7 @@ class Arxiv(ArticleResource):
 
         if not search_results:
             print("No results found for the query.")
-            return None
+            return []
 
         recent_results = []
         for result in search_results:
@@ -340,12 +347,12 @@ class Arxiv(ArticleResource):
 
         if not recent_results:
             print("No recent papers found within the last 7 days.")
-            return None
+            return []
 
-
+        full_texts = []
         for result in recent_results:
             print(f"Title: {result.title}")
-            print(f"Abstract: {result.summary}")
+            #print(f"Abstract: {result.summary}")
 
             pdf_response = requests.get(result.pdf_url)
             pdf_path = f"{result.entry_id.split('/')[-1]}.pdf"
@@ -358,19 +365,21 @@ class Arxiv(ArticleResource):
             doc = fitz.open(pdf_path)
             full_text = "\n".join(page.get_text("text") for page in doc)
 
-            return full_text
+            full_texts.append({
+                'title': result.title,
+                'text': full_text,
+                'url': result.entry_id
+            })
+
+        return full_texts
 
     def get_articles(self):
         try:
             all_rows = []
             for topic in self.user_input:
-                full_text = self.download_and_extract_arxiv_paper(topic)
-                if full_text:
-                    rows.append({
-                        'title': topic,
-                        'text': full_text,
-                        'url': f"https://arxiv.org/search/?query={topic}&searchtype=all"
-                    })
+                full_texts = self.download_and_extract_arxiv_paper(topic)
+                for full_text in full_texts:
+                    all_rows.append(full_text)
             self.articles_df = pd.DataFrame(all_rows)
             self.normalize_df()
         except Exception as e:
@@ -443,7 +452,7 @@ class UserTopicsOutput:
 
 
 if __name__ == "__main__":
-    user_input = ['poop', 'pee', 'fart']
+    user_input = ['biology', 'mathematics', 'physics']
     user_input = [topic.lower() for topic in user_input]
     user_embeddings = MODEL.encode(
         " ".join(user_input), convert_to_tensor=True)
@@ -455,7 +464,6 @@ if __name__ == "__main__":
     sem = Sem(user_topics)
     alpha = AlphaVantage(user_topics)
     arx = Arxiv(user_topics)
-    arx.download_and_extract_arxiv_paper("machine learning")
 
     # pubmed.get_articles()
     # sem.get_articles()
