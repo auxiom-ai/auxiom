@@ -73,115 +73,85 @@ export default function LearningProgress({
     return `${minutes}:${seconds.toString().padStart(2, "0")}`
   }
 
-  const streamPodcast = (script: string) => {
-    console.log("Connecting to WebSocket with script");
+  const connectToWebSocket = (podcastId: number, script: string) => {
+    const wsUrl = `ws://localhost:${window.location.port}`; // Or 'ws://localhost:3000'
+    websocketRef.current = new WebSocket(wsUrl);
 
-    // Clean up existing connections and media sources
-    if (websocketRef.current) {
-      websocketRef.current.close();
-    }
+    websocketRef.current.binaryType = "arraybuffer";
 
-    if (audioPlayerRef.current) {
-      audioPlayerRef.current.pause();
-      if (audioPlayerRef.current.src) {
-        URL.revokeObjectURL(audioPlayerRef.current.src);
-      }
-    }
+    websocketRef.current.onopen = () => {
+      console.log("WebSocket connection established");
+      websocketRef.current?.send(
+        JSON.stringify({
+          type: "script",
+          podcastId,
+          script,
+        })
+      );
+    };
 
-    // Create a new MediaSource
-    mediaSourceRef.current = new MediaSource();
-    sourceBufferRef.current = null;
-    audioQueueRef.current = [];
+    websocketRef.current.onmessage = (event) => {
+      if (event.data instanceof ArrayBuffer) {
+        console.log(`Received audio data: ${event.data.byteLength} bytes`);
 
-    // Set up audio player with new media source
-    if (audioPlayerRef.current) {
-      const mediaSourceUrl = URL.createObjectURL(mediaSourceRef.current);
-      audioPlayerRef.current.src = mediaSourceUrl;
-      console.log("Created new MediaSource URL:", mediaSourceUrl);
-    }
-
-    // Set up MediaSource open event handler BEFORE connecting WebSocket
-    mediaSourceRef.current.addEventListener("sourceopen", () => {
-      console.log("MediaSource opened, readyState:", mediaSourceRef.current?.readyState);
-
-      try {
-        const mimeType = "audio/mpeg"; // Adjust MIME type if needed
-
-        if (!MediaSource.isTypeSupported(mimeType)) {
-          console.error(`MIME type ${mimeType} is not supported`);
+        if (!sourceBufferRef.current) {
+          console.warn("No SourceBuffer available, queuing chunk");
+          audioQueueRef.current.push(event.data);
           return;
         }
 
-        // Only create source buffer if it doesn't exist yet
-        if (!sourceBufferRef.current && mediaSourceRef.current) {
-          const sourceBuffer = mediaSourceRef.current.addSourceBuffer(mimeType);
-          sourceBufferRef.current = sourceBuffer || null;
-
-          console.log("SourceBuffer created successfully");
-
-          // Set up event handlers for the source buffer
-          sourceBuffer.addEventListener("updateend", () => {
-            if (audioQueueRef.current.length > 0 && !sourceBuffer.updating) {
-              const nextChunk = audioQueueRef.current.shift();
-              if (nextChunk) {
-                try {
-                  console.log("Appending queued audio chunk");
-                  sourceBuffer.appendBuffer(nextChunk);
-                } catch (error) {
-                  console.error("Error appending buffer:", error);
-                }
-              }
-            } else if (
-              audioQueueRef.current.length === 0 &&
-              mediaSourceRef.current?.readyState === "open" &&
-              !isStreaming && // Only end stream if we're no longer streaming
-              sourceBuffer.buffered.length > 0 // Make sure we have some data before ending
-            ) {
-              console.log("All audio chunks appended, signaling end of stream");
-              try {
-                mediaSourceRef.current.endOfStream();
-              } catch (error) {
-                console.error("Error ending stream:", error);
-              }
-            }
-          });
-
-          sourceBuffer.addEventListener("error", (error) => {
-            console.error("SourceBuffer error:", error);
-          });
-
-          // Pre-buffer audio data before starting playback
-          let initialBuffering = true;
-          const checkBuffer = setInterval(() => {
-            if (
-              audioPlayerRef.current &&
-              sourceBuffer.buffered.length > 0 &&
-              sourceBuffer.buffered.end(0) > 2 // Ensure at least 2 seconds of buffered data
-            ) {
-              console.log("Sufficient data buffered, starting playback");
-              audioPlayerRef.current.play().catch((err) => {
-                console.error("Error starting playback:", err);
-              });
-              clearInterval(checkBuffer);
-              initialBuffering = false;
-            }
-          }, 100);
-
-          // Now that the source buffer is ready, connect to WebSocket
-          connectToWebSocket(script);
+        if (sourceBufferRef.current.updating) {
+          audioQueueRef.current.push(event.data);
         } else {
-          console.log("SourceBuffer already exists or MediaSource is not ready");
-          // Connect anyway in case the source buffer setup failed
-          connectToWebSocket(script);
+          try {
+            sourceBufferRef.current.appendBuffer(event.data);
+            console.log(`Appended chunk of size: ${event.data.byteLength}`);
+          } catch (error) {
+            console.error("Error appending buffer:", error);
+            audioQueueRef.current.push(event.data);
+          }
         }
-      } catch (error) {
-        console.error("Error setting up MediaSource:", error);
-        // Try to connect anyway
-        connectToWebSocket(script);
+      } else {
+        try {
+          const message = JSON.parse(event.data as string);
+          switch (message.type) {
+            case "transcript":
+              console.log(
+                `Received transcript: ${message.content.text} (Host ${message.content.host})`
+              );
+              setCurrentTranscript(message.content.text);
+              setCurrentHost(message.content.host);
+              break;
+            case "complete":
+              console.log("Podcast streaming completed");
+              setIsStreaming(false);
+              break;
+            case "error":
+              console.error("Error:", message.content);
+              setIsStreaming(false);
+              setIsPlaying(false);
+              break;
+            default:
+              console.log("Received WebSocket message:", message);
+          }
+        } catch (error) {
+          console.error("Error parsing WebSocket message:", error);
+        }
       }
-    });
+    };
 
-    return websocketRef.current;
+    websocketRef.current.onerror = (error) => {
+      console.error("WebSocket error:", error);
+      setIsStreaming(false);
+      setIsPlaying(false);
+    };
+
+    websocketRef.current.onclose = () => {
+      console.log("WebSocket connection closed");
+      setIsStreaming(false);
+      setIsPlaying(false);
+      websocketRef.current = null; // Ensure no further messages are sent
+    };
   };
 
   const handlePlayPodcast = async (podcast: {
@@ -197,7 +167,7 @@ export default function LearningProgress({
     console.log("Starting podcast playback:", podcast.title);
     setCurrentPodcast(podcast);
     setPlayerOpen(true);
-    
+
     // Clean up existing MediaSource and related references for a new podcast
     if (mediaSourceRef.current) {
       URL.revokeObjectURL(audioPlayerRef.current?.src || "");
@@ -240,81 +210,8 @@ export default function LearningProgress({
     });
 
     // Connect to WebSocket
-    console.log("TRYING to connect")
-    connectToWebSocket();
-  };
-
-  const connectToWebSocket = () => {
-    const wsUrl = `ws://127.0.0.1:8000/ws/podcast`; // Removed podcast_id from URL
-    websocketRef.current = new WebSocket(wsUrl);
-
-    websocketRef.current.binaryType = "arraybuffer";
-
-    websocketRef.current.onopen = () => {
-      console.log("WebSocket connection established");
-      websocketRef.current?.send(JSON.stringify({ type: "script" })); // Adjusted message if needed
-    };
-
-    websocketRef.current.onmessage = (event) => {
-      if (event.data instanceof ArrayBuffer) {
-        console.log(`Received audio data: ${event.data.byteLength} bytes`);
-
-        if (!sourceBufferRef.current) {
-          console.warn("No SourceBuffer available, queuing chunk");
-          audioQueueRef.current.push(event.data);
-          return;
-        }
-
-        if (sourceBufferRef.current.updating) {
-          audioQueueRef.current.push(event.data);
-        } else {
-          try {
-            sourceBufferRef.current.appendBuffer(event.data);
-            console.log(`Appended chunk of size: ${event.data.byteLength}`);
-          } catch (error) {
-            console.error("Error appending buffer:", error);
-            audioQueueRef.current.push(event.data);
-          }
-        }
-      } else {
-        try {
-          const message = JSON.parse(event.data as string);
-          switch (message.type) {
-            case "transcript":
-              console.log(`Received transcript: ${message.content.text} (Host ${message.content.host})`);
-              setCurrentTranscript(message.content.text);
-              setCurrentHost(message.content.host);
-              break;
-            case "complete":
-              console.log("Podcast streaming completed");
-              setIsStreaming(false);
-              break;
-            case "error":
-              console.error("Error:", message.content);
-              setIsStreaming(false);
-              setIsPlaying(false);
-              break;
-            default:
-              console.log("Received WebSocket message:", message);
-          }
-        } catch (error) {
-          console.error("Error parsing WebSocket message:", error);
-        }
-      }
-    };
-
-    websocketRef.current.onerror = (error) => {
-      console.error("WebSocket error:", error);
-      setIsStreaming(false);
-      setIsPlaying(false);
-    };
-
-    websocketRef.current.onclose = () => {
-      console.log("WebSocket connection closed");
-      setIsStreaming(false);
-      setIsPlaying(false);
-      websocketRef.current = null; // Ensure no further messages are sent
-    };
+    console.log("Connecting to WebSocket");
+    connectToWebSocket(podcast.id, JSON.stringify(podcast.script));
   };
 
   const togglePlayPause = () => {

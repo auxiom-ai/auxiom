@@ -423,70 +423,70 @@ def write_to_s3(num_turns, user_id, episode_number):
 
     print("Audio file uploaded to S3.")
 
-@app.websocket("/ws/podcast")
-async def stream_podcast(websocket: WebSocket):
-    await websocket.accept()
-    try:
-        print("CONNECTED")
+# @app.websocket("/ws/podcast")
+# async def stream_podcast(websocket: WebSocket):
+#     await websocket.accept()
+#     try:
+#         print("CONNECTED")
 
-        script = """**HOST 1**: Welcome back to Auxiom! This past week there has been ...
-    **HOST 2 **: That's right. Recently a bill came up for...
-    **HOST 1:** I read that Senator Jones said a lot about...
-    **HOST 2:** Right, I mean he is a big proponent of ... 
-    **HOST 1:** Sounds like it will be a big step for ...
-    **HOST 2:** - This impacts all the countries in ..."""  # Your script here
+#         script = """**HOST 1**: Welcome back to Auxiom! This past week there has been ...
+#     **HOST 2 **: That's right. Recently a bill came up for...
+#     **HOST 1:** I read that Senator Jones said a lot about...
+#     **HOST 2:** Right, I mean he is a big proponent of ... 
+#     **HOST 1:** Sounds like it will be a big step for ...
+#     **HOST 2:** - This impacts all the countries in ..."""  # Your script here
 
-        turns = clean_text_for_conversational_tts(script)
-        if not turns:
-            await websocket.send_json({"type": "error", "content": "Invalid script"})
-            return
+#         turns = clean_text_for_conversational_tts(script)
+#         if not turns:
+#             await websocket.send_json({"type": "error", "content": "Invalid script"})
+#             return
 
-        client = OpenAI(api_key=OPENAI_API_KEY)
+#         client = OpenAI(api_key=OPENAI_API_KEY)
 
-        for index, sentence in enumerate(turns):
-            host = 1 if index % 2 == 0 else 2
-            voice = 'nova' if host == 1 else 'onyx'
+#         for index, sentence in enumerate(turns):
+#             host = 1 if index % 2 == 0 else 2
+#             voice = 'nova' if host == 1 else 'onyx'
 
-            # Send transcript
-            await websocket.send_json({
-                "type": "transcript",
-                "turn": index,
-                "host": host,
-                "text": sentence
-            })
+#             # Send transcript
+#             await websocket.send_json({
+#                 "type": "transcript",
+#                 "turn": index,
+#                 "host": host,
+#                 "text": sentence
+#             })
 
-            # Generate and stream audio
-            try:
-                response = client.audio.speech.create(
-                    model="tts-1",
-                    voice=voice,
-                    input=sentence,
-                    response_format='mp3'
-                )
+#             # Generate and stream audio
+#             try:
+#                 response = client.audio.speech.create(
+#                     model="tts-1",
+#                     voice=voice,
+#                     input=sentence,
+#                     response_format='mp3'
+#                 )
 
-                # Use regular for loop with iter_bytes()
-                for chunk in response.iter_bytes(chunk_size=4096):
-                    await websocket.send_bytes(chunk)
-                    await asyncio.sleep(0.01)  # Small delay to prevent overwhelming
+#                 # Use regular for loop with iter_bytes()
+#                 for chunk in response.iter_bytes(chunk_size=4096):
+#                     await websocket.send_bytes(chunk)
+#                     await asyncio.sleep(0.01)  # Small delay to prevent overwhelming
 
-            except Exception as e:
-                print(f"Error in turn {index}: {str(e)}")
-                await websocket.send_json({
-                    "type": "error",
-                    "turn": index,
-                    "message": str(e)
-                })
-                break
+#             except Exception as e:
+#                 print(f"Error in turn {index}: {str(e)}")
+#                 await websocket.send_json({
+#                     "type": "error",
+#                     "turn": index,
+#                     "message": str(e)
+#                 })
+#                 break
 
-        await websocket.send_json({"type": "complete"})
+#         await websocket.send_json({"type": "complete"})
 
-    except WebSocketDisconnect:
-        print("Client disconnected normally")
-    except Exception as e:
-        print(f"Unexpected error: {str(e)}")
-    finally:
-        await websocket.close()
-# Run the server
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+#     except WebSocketDisconnect:
+#         print("Client disconnected normally")
+#     except Exception as e:
+#         print(f"Unexpected error: {str(e)}")
+#     finally:
+#         await websocket.close()
+# # Run the server
+# if __name__ == "__main__":
+#     import uvicorn
+#     uvicorn.run(app, host="0.0.0.0", port=8000)
