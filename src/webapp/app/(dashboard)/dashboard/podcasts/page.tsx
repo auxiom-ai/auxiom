@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import LearningProgress from "./history";
 
 // WebSocket endpoint for podcast streaming
-const WS_ENDPOINT = `ws://127.0.0.1:8000/api/podcast-streaming`; // replace with environment variable
+const WS_ENDPOINT = `ws://127.0.0.1:3000/api/podcast-streaming`; // Updated WebSocket URL to use port 3000
 
 interface LearningProgressProps {
   podcasts: {
