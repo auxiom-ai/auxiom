@@ -11,6 +11,9 @@ import { PlayCircle, PauseCircle, BookOpen, SkipBack, SkipForward, CheckCircle, 
 import Image from "next/image"
 import { setListened } from "@/lib/actions"
 import { Toast } from "@/components/ui/toast"
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 export default function LearningProgress({
   podcasts,
@@ -23,7 +26,7 @@ export default function LearningProgress({
     duration: string
     listened: boolean
     articles: { title: string; description: string; url: string }[]
-    script: { text: string }[] // Include the script column here
+    script: string[]
   }>
 }) {
   const [expandedPodcast, setExpandedPodcast] = useState<number | null>(null)
@@ -40,7 +43,7 @@ export default function LearningProgress({
     duration: string
     listened: boolean
     articles: { title: string; description: string; url: string }[]
-    script: { text: string }[] // Include the script column here
+    script: string[]
   } | null>(null)
   const [listenedPodcasts, setListenedPodcasts] = useState<Record<number, boolean>>(() => {
     const initialState: Record<number, boolean> = {}
@@ -57,6 +60,16 @@ export default function LearningProgress({
   const [isStreaming, setIsStreaming] = useState(false)
   const [currentTranscript, setCurrentTranscript] = useState("")
   const [currentHost, setCurrentHost] = useState(1)
+  const eventSourceRef = useRef<EventSource | null>(null)
+  const [isBuffering, setIsBuffering] = useState(true)
+  const bufferSizeRef = useRef<number>(0)
+  const hasStartedPlayingRef = useRef<boolean>(false)
+  const bufferTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const [isLive, setIsLive] = useState(true)
+  const [totalStreamedTime, setTotalStreamedTime] = useState(0)
+  const streamStartTimeRef = useRef<number>(0)
+  const audioChunksRef = useRef<ArrayBuffer[]>([])
+  const [isSeeking, setIsSeeking] = useState(false)
 
   const sortedPodcasts = useMemo(() => {
     return [...podcasts].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
@@ -73,117 +86,6 @@ export default function LearningProgress({
     return `${minutes}:${seconds.toString().padStart(2, "0")}`
   }
 
-  const streamPodcast = (script: string) => {
-    console.log("Connecting to WebSocket with script");
-
-    // Clean up existing connections and media sources
-    if (websocketRef.current) {
-      websocketRef.current.close();
-    }
-
-    if (audioPlayerRef.current) {
-      audioPlayerRef.current.pause();
-      if (audioPlayerRef.current.src) {
-        URL.revokeObjectURL(audioPlayerRef.current.src);
-      }
-    }
-
-    // Create a new MediaSource
-    mediaSourceRef.current = new MediaSource();
-    sourceBufferRef.current = null;
-    audioQueueRef.current = [];
-
-    // Set up audio player with new media source
-    if (audioPlayerRef.current) {
-      const mediaSourceUrl = URL.createObjectURL(mediaSourceRef.current);
-      audioPlayerRef.current.src = mediaSourceUrl;
-      console.log("Created new MediaSource URL:", mediaSourceUrl);
-    }
-
-    // Set up MediaSource open event handler BEFORE connecting WebSocket
-    mediaSourceRef.current.addEventListener("sourceopen", () => {
-      console.log("MediaSource opened, readyState:", mediaSourceRef.current?.readyState);
-
-      try {
-        const mimeType = "audio/mpeg"; // Adjust MIME type if needed
-
-        if (!MediaSource.isTypeSupported(mimeType)) {
-          console.error(`MIME type ${mimeType} is not supported`);
-          return;
-        }
-
-        // Only create source buffer if it doesn't exist yet
-        if (!sourceBufferRef.current && mediaSourceRef.current) {
-          const sourceBuffer = mediaSourceRef.current.addSourceBuffer(mimeType);
-          sourceBufferRef.current = sourceBuffer || null;
-
-          console.log("SourceBuffer created successfully");
-
-          // Set up event handlers for the source buffer
-          sourceBuffer.addEventListener("updateend", () => {
-            if (audioQueueRef.current.length > 0 && !sourceBuffer.updating) {
-              const nextChunk = audioQueueRef.current.shift();
-              if (nextChunk) {
-                try {
-                  console.log("Appending queued audio chunk");
-                  sourceBuffer.appendBuffer(nextChunk);
-                } catch (error) {
-                  console.error("Error appending buffer:", error);
-                }
-              }
-            } else if (
-              audioQueueRef.current.length === 0 &&
-              mediaSourceRef.current?.readyState === "open" &&
-              !isStreaming && // Only end stream if we're no longer streaming
-              sourceBuffer.buffered.length > 0 // Make sure we have some data before ending
-            ) {
-              console.log("All audio chunks appended, signaling end of stream");
-              try {
-                mediaSourceRef.current.endOfStream();
-              } catch (error) {
-                console.error("Error ending stream:", error);
-              }
-            }
-          });
-
-          sourceBuffer.addEventListener("error", (error) => {
-            console.error("SourceBuffer error:", error);
-          });
-
-          // Pre-buffer audio data before starting playback
-          let initialBuffering = true;
-          const checkBuffer = setInterval(() => {
-            if (
-              audioPlayerRef.current &&
-              sourceBuffer.buffered.length > 0 &&
-              sourceBuffer.buffered.end(0) > 2 // Ensure at least 2 seconds of buffered data
-            ) {
-              console.log("Sufficient data buffered, starting playback");
-              audioPlayerRef.current.play().catch((err) => {
-                console.error("Error starting playback:", err);
-              });
-              clearInterval(checkBuffer);
-              initialBuffering = false;
-            }
-          }, 100);
-
-          // Now that the source buffer is ready, connect to WebSocket
-          connectToWebSocket(script);
-        } else {
-          console.log("SourceBuffer already exists or MediaSource is not ready");
-          // Connect anyway in case the source buffer setup failed
-          connectToWebSocket(script);
-        }
-      } catch (error) {
-        console.error("Error setting up MediaSource:", error);
-        // Try to connect anyway
-        connectToWebSocket(script);
-      }
-    });
-
-    return websocketRef.current;
-  };
-
   const handlePlayPodcast = async (podcast: {
     id: number;
     title: string;
@@ -192,11 +94,19 @@ export default function LearningProgress({
     duration: string;
     listened: boolean;
     articles: { title: string; description: string; url: string }[];
-    script: { text: string }[];
+    script: string[];
   }) => {
     console.log("Starting podcast playback:", podcast.title);
     setCurrentPodcast(podcast);
     setPlayerOpen(true);
+    setIsStreaming(true);
+    setIsBuffering(true);
+    hasStartedPlayingRef.current = false;
+    bufferSizeRef.current = 0;
+    setIsLive(true);
+    setTotalStreamedTime(0);
+    streamStartTimeRef.current = Date.now();
+    audioChunksRef.current = [];
     
     // Clean up existing MediaSource and related references for a new podcast
     if (mediaSourceRef.current) {
@@ -204,6 +114,18 @@ export default function LearningProgress({
       mediaSourceRef.current = null;
       sourceBufferRef.current = null;
       audioQueueRef.current = [];
+    }
+    
+    // Close any existing EventSource
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+    }
+    
+    // Clear any existing timeout
+    if (bufferTimeoutRef.current) {
+      clearTimeout(bufferTimeoutRef.current);
+      bufferTimeoutRef.current = null;
     }
 
     // Create a new MediaSource object
@@ -226,113 +148,231 @@ export default function LearningProgress({
       sourceBufferRef.current = sourceBuffer || null;
 
       sourceBuffer?.addEventListener("updateend", () => {
-        if (audioQueueRef.current.length > 0 && !sourceBuffer.updating) {
-          const nextChunk = audioQueueRef.current.shift();
-          if (nextChunk) {
-            try {
-              sourceBuffer.appendBuffer(nextChunk);
-            } catch (error) {
-              console.error("Error appending buffer:", error);
-            }
-          }
-        }
+        // Process the next chunk in the queue
+        processAudioQueue();
       });
+      
+      // Set a timeout to force start playback if buffering takes too long
+      bufferTimeoutRef.current = setTimeout(() => {
+        if (isBuffering && audioPlayerRef.current && sourceBufferRef.current && 
+            sourceBufferRef.current.buffered.length > 0) {
+          console.log("Buffer timeout reached, forcing playback start");
+          hasStartedPlayingRef.current = true;
+          setIsBuffering(false);
+          setIsPlaying(true);
+          audioPlayerRef.current.play().catch(err => {
+            console.error("Error starting playback after timeout:", err);
+          });
+        }
+      }, 5000); // 5 seconds timeout
     });
 
-    // Connect to WebSocket
-    console.log("TRYING to connect")
-    connectToWebSocket();
+    // Connect to SSE
+    console.log("Connecting to SSE endpoint with podcast script");
+    try {
+      eventSourceRef.current = await connectToWebSocket(podcast.script);
+    } catch (error) {
+      console.error("Failed to connect to SSE:", error);
+      setIsStreaming(false);
+      setIsBuffering(false);
+    }
   };
 
-  const connectToWebSocket = () => {
-    if (typeof window === "undefined") {
-      console.error("WebSocket cannot be initialized on the server.");
-      return;
-    }
-
-    const wsUrl = 'ws://localhost:8080'; // or use environment variables in production
-    websocketRef.current = new WebSocket(wsUrl);
-
-    websocketRef.current.binaryType = "arraybuffer";
-
-    websocketRef.current.onopen = () => {
-      console.log("WebSocket connection established");
-      websocketRef.current?.send(JSON.stringify({ type: "start", message: "Begin streaming" })); // Send an initial message
-    };
-
-    websocketRef.current.onmessage = (event) => {
-      console.log("WebSocket message received:", event);
-      if (event.data instanceof ArrayBuffer) {
-        console.log(`Received audio data: ${event.data.byteLength} bytes`);
-
-        if (!sourceBufferRef.current) {
-          console.warn("No SourceBuffer available, queuing chunk");
-          audioQueueRef.current.push(event.data);
-          return;
-        }
-
-        if (sourceBufferRef.current.updating) {
-          audioQueueRef.current.push(event.data);
-        } else {
-          try {
-            sourceBufferRef.current.appendBuffer(event.data);
-            console.log(`Appended chunk of size: ${event.data.byteLength}`);
-          } catch (error) {
-            console.error("Error appending buffer:", error);
-            audioQueueRef.current.push(event.data);
-          }
-        }
-      } else {
+  const connectToWebSocket = async (script: string[]) => {
+    try {
+      console.log("Attempting to connect to SSE endpoint...");
+      script = ['hello, I am mark', 'hi mark, I am rahil', 'please work'];
+      
+      // Create EventSource for SSE
+      const sseUrl = `/api/ws/podcast?script=${encodeURIComponent(JSON.stringify(script))}`;
+      console.log("Connecting to SSE URL:", sseUrl);
+      
+      const eventSource = new EventSource(sseUrl);
+      
+      // Set up event handlers
+      eventSource.onopen = () => {
+        console.log("SSE connection established");
+      };
+      
+      eventSource.onmessage = (event) => {
         try {
-          const message = JSON.parse(event.data as string);
-          console.log("Parsed WebSocket message:", message);
+          const message = JSON.parse(event.data);
+          console.log("Received message:", message.type);
+          
           switch (message.type) {
-            case "transcript":
-              console.log(`Received transcript: ${message.text} (Host ${message.host})`);
-              setCurrentTranscript(message.text);
+            case 'metadata':
+              console.log(`Received metadata: ${message.turns} turns`);
+              break;
+              
+            case 'status':
+              console.log(`Status update: ${message.message}`);
+              if (message.progress !== undefined) {
+                console.log(`Progress: ${message.progress}%`);
+              }
+              break;
+              
+            case 'host':
+              console.log(`Host change: ${message.host}`);
               setCurrentHost(message.host);
               break;
-            case "complete":
-              console.log("Podcast streaming completed");
-              setIsStreaming(false);
+              
+            case 'audio':
+              // Handle audio data (base64 encoded)
+              console.log("Received audio data chunk");
+              if (message.data) {
+                try {
+                  // Convert base64 to ArrayBuffer
+                  const binaryString = atob(message.data);
+                  const bytes = new Uint8Array(binaryString.length);
+                  for (let i = 0; i < binaryString.length; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                  }
+                  
+                  // Add to audio queue
+                  audioQueueRef.current.push(bytes.buffer);
+                  
+                  // Process queue if source buffer is ready
+                  if (sourceBufferRef.current && !sourceBufferRef.current.updating) {
+                    processAudioQueue();
+                  }
+                } catch (error) {
+                  console.error("Error processing audio data:", error);
+                }
+              }
               break;
-            case "error":
-              console.error("Error:", message.content);
-              setIsStreaming(false);
-              setIsPlaying(false);
+              
+            case 'segment_end':
+              console.log(`Segment ${message.turn} completed`);
               break;
+              
+            case 'complete':
+              console.log("Streaming completed");
+              eventSource.close();
+              break;
+              
+            case 'error':
+              console.error("Server error:", message.message);
+              eventSource.close();
+              break;
+              
             default:
-              console.log("Received WebSocket message:", message);
+              console.warn("Unknown message type:", message.type);
           }
         } catch (error) {
-          console.error("Error parsing WebSocket message:", error);
+          console.error("Error processing message:", error);
         }
+      };
+      
+      eventSource.onerror = (error) => {
+        console.error("SSE error:", error);
+        // Don't close the connection on error, it might recover
+        // Only close if we get a specific error message
+      };
+      
+      return eventSource;
+    } catch (error) {
+      console.error("Error connecting to SSE:", error);
+      throw error;
+    }
+  };
+
+  // Function to process the audio queue
+  const processAudioQueue = () => {
+    if (!sourceBufferRef.current || sourceBufferRef.current.updating || audioQueueRef.current.length === 0) {
+      return;
+    }
+    
+    const nextChunk = audioQueueRef.current.shift();
+    if (nextChunk) {
+      try {
+        // Check if the source buffer is in a valid state
+        if (sourceBufferRef.current.updating) {
+          console.log("Source buffer is still updating, adding chunk back to queue");
+          audioQueueRef.current.unshift(nextChunk);
+          return;
+        }
+        
+        // Store the chunk for seeking
+        audioChunksRef.current.push(nextChunk);
+        
+        // Try to append the buffer
+        sourceBufferRef.current.appendBuffer(nextChunk);
+        
+        // Update buffer size
+        bufferSizeRef.current += nextChunk.byteLength;
+        
+        // Update total streamed time
+        if (!isSeeking) {
+          const elapsedTime = (Date.now() - streamStartTimeRef.current) / 1000;
+          setTotalStreamedTime(elapsedTime);
+        }
+        
+        // Check if we should start playing (after 2000 bytes)
+        if (!hasStartedPlayingRef.current && bufferSizeRef.current >= 2000 && audioPlayerRef.current) {
+          console.log("Buffer size reached 2000 bytes, starting playback");
+          hasStartedPlayingRef.current = true;
+          setIsBuffering(false);
+          setIsPlaying(true);
+          
+          // Clear any existing timeout
+          if (bufferTimeoutRef.current) {
+            clearTimeout(bufferTimeoutRef.current);
+            bufferTimeoutRef.current = null;
+          }
+          
+          audioPlayerRef.current.play().catch(err => {
+            console.error("Error starting playback:", err);
+            // If autoplay is prevented, we need to wait for user interaction
+            if (err.name === "NotAllowedError") {
+              console.log("Autoplay prevented by browser");
+              setIsBuffering(false);
+              setIsPlaying(false);
+            }
+          });
+        }
+      } catch (error) {
+        console.error("Error appending buffer:", error);
+        
+        // If we get an error, try to recover
+        if (error instanceof DOMException && error.name === "QuotaExceededError") {
+          console.log("Buffer quota exceeded, removing old data");
+          try {
+            // Remove data from the beginning of the buffer
+            if (sourceBufferRef.current.buffered.length > 0) {
+              const start = sourceBufferRef.current.buffered.start(0);
+              const end = sourceBufferRef.current.buffered.end(0);
+              const removeEnd = Math.min(end, start + 1); // Remove 1 second of data
+              
+              sourceBufferRef.current.remove(start, removeEnd);
+              console.log(`Removed data from ${start} to ${removeEnd}`);
+            }
+          } catch (removeError) {
+            console.error("Error removing buffer data:", removeError);
+          }
+        }
+        
+        // Add the chunk back to the queue to try again later
+        audioQueueRef.current.unshift(nextChunk);
       }
-    };
-
-    websocketRef.current.onerror = (error) => {
-      console.error("WebSocket error:", error);
-      alert("WebSocket connection failed. Please check the server.");
-    };
-
-    websocketRef.current.onclose = (event) => {
-      console.log("WebSocket connection closed:", event);
-      setIsStreaming(false);
-      setIsPlaying(false);
-      websocketRef.current = null; // Ensure no further messages are sent
-    };
+    }
   };
 
   const togglePlayPause = () => {
     if (audioPlayerRef.current) {
       if (isPlaying) {
-        audioPlayerRef.current.pause()
+        audioPlayerRef.current.pause();
       } else {
+        // If we're still buffering, don't try to play yet
+        if (isBuffering) {
+          console.log("Still buffering, cannot play yet");
+          return;
+        }
+        
         audioPlayerRef.current.play().catch((err) => {
-          console.error("Error starting playback:", err)
-        })
+          console.error("Error starting playback:", err);
+        });
       }
-      setIsPlaying(!isPlaying)
+      // Note: We don't set isPlaying here anymore, it's handled by the event listeners
     }
   }
 
@@ -368,24 +408,34 @@ export default function LearningProgress({
     // Add debug listeners
     const handleCanPlay = () => {
       console.log("Audio can play now");
-      if (isPlaying && audioPlayerRef.current && audioPlayerRef.current.src) {
-        console.log("Attempting to play on canplay event");
-        audioPlayerRef.current.play().catch((err) => {
-          console.error("Error starting playback on canplay:", err);
-          // Consider handling specific errors like autoplay prevention
-          if (err.name === "NotAllowedError") {
-            console.log("Autoplay prevented by browser.");
-            // You might want to show a message to the user to interact with the player
-          }
-        });
-      }
+      // Don't automatically play here, we'll handle that in the buffer processing
     };
 
-    const handlePlaying = () => console.log("Audio is playing");
-    const handlePause = () => console.log("Audio is paused");
-    const handleWaiting = () => console.log("Audio waiting for more data");
-    const handleStalled = () => console.log("Audio playback has stalled");
-    const handleError = (e: Event & { target: HTMLAudioElement }) => console.error("Audio error:", e.target.error);
+    const handlePlaying = () => {
+      console.log("Audio is playing");
+      setIsPlaying(true);
+      setIsBuffering(false);
+    };
+    
+    const handlePause = () => {
+      console.log("Audio is paused");
+      setIsPlaying(false);
+    };
+    
+    const handleWaiting = () => {
+      console.log("Audio waiting for more data");
+      setIsBuffering(true);
+    };
+    
+    const handleStalled = () => {
+      console.log("Audio playback has stalled");
+      setIsBuffering(true);
+    };
+    
+    const handleError = (e: ErrorEvent) => {
+      console.error("Audio error:", e);
+      setIsBuffering(false);
+    };
 
     if (audioPlayerRef.current) {
       audioPlayerRef.current.addEventListener("canplay", handleCanPlay);
@@ -441,34 +491,48 @@ export default function LearningProgress({
 
   useEffect(() => {
     if (playerOpen && currentPodcast?.script) {
-      // WebSocket connection is handled in handlePlayPodcast
+      // SSE connection is handled in handlePlayPodcast
     } else {
       // Clean up if player is closed or no podcast is selected
-      if (websocketRef.current) {
-        websocketRef.current.close()
-        websocketRef.current = null
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
       }
+      
+      // Clear any existing timeout
+      if (bufferTimeoutRef.current) {
+        clearTimeout(bufferTimeoutRef.current);
+        bufferTimeoutRef.current = null;
+      }
+      
       if (mediaSourceRef.current && mediaSourceRef.current.readyState === "open") {
-        mediaSourceRef.current.endOfStream()
-        URL.revokeObjectURL(audioPlayerRef.current?.src || "")
-        mediaSourceRef.current = null
-        sourceBufferRef.current = null
-        audioQueueRef.current = []
+        mediaSourceRef.current.endOfStream();
+        URL.revokeObjectURL(audioPlayerRef.current?.src || "");
+        mediaSourceRef.current = null;
+        sourceBufferRef.current = null;
+        audioQueueRef.current = [];
         if (audioPlayerRef.current) {
-          audioPlayerRef.current.src = ""
-          audioPlayerRef.current.load()
+          audioPlayerRef.current.src = "";
+          audioPlayerRef.current.load();
         }
       }
-      setIsStreaming(false)
-      setIsPlaying(false)
+      setIsStreaming(false);
+      setIsPlaying(false);
     }
   }, [playerOpen, currentPodcast?.script])
 
   useEffect(() => {
     const updateTime = () => {
       if (audioPlayerRef.current) {
-        setCurrentTime(audioPlayerRef.current.currentTime)
-        setDuration(audioPlayerRef.current.duration)
+        if (isLive && !isSeeking) {
+          // For live playback, use the total streamed time
+          setCurrentTime(totalStreamedTime);
+          setDuration(totalStreamedTime);
+        } else {
+          // For seeking, use the audio element's time
+          setCurrentTime(audioPlayerRef.current.currentTime);
+          setDuration(audioPlayerRef.current.duration || totalStreamedTime);
+        }
       }
     }
 
@@ -486,13 +550,43 @@ export default function LearningProgress({
         audioPlayerRef.current.removeEventListener("loadedmetadata", updateTime)
       }
     }
-  }, [playbackSpeed])
+  }, [playbackSpeed, isLive, totalStreamedTime, isSeeking])
 
   useEffect(() => {
     if (audioPlayerRef.current) {
       audioPlayerRef.current.playbackRate = playbackSpeed
     }
   }, [playbackSpeed])
+
+  const handleSeek = (value: number[]) => {
+    if (!audioPlayerRef.current || !sourceBufferRef.current) return;
+    
+    setIsSeeking(true);
+    setIsLive(false);
+    
+    // Calculate the target time
+    const targetTime = value[0];
+    
+    // If seeking to the end (live position)
+    if (targetTime >= totalStreamedTime - 0.5) {
+      setIsLive(true);
+      audioPlayerRef.current.currentTime = totalStreamedTime;
+      return;
+    }
+    
+    // Otherwise, seek to the specified position
+    audioPlayerRef.current.currentTime = targetTime;
+  };
+  
+  const handleSeekEnd = () => {
+    setIsSeeking(false);
+    
+    // If we're at the end, switch back to live mode
+    if (audioPlayerRef.current && 
+        audioPlayerRef.current.currentTime >= totalStreamedTime - 0.5) {
+      setIsLive(true);
+    }
+  };
 
   return (
     <div className="min-h-screen py-6 sm:py-12 px-2 sm:px-4">
@@ -652,20 +746,24 @@ export default function LearningProgress({
             <div className="space-y-2">
               <div className="flex justify-between text-sm text-gray-300">
                 <span>{formatTime(currentTime)}</span>
-                <span>{formatTime(duration)}</span>
+                <span>{isLive ? "LIVE" : formatTime(duration)}</span>
               </div>
               <Slider
-                value={[currentTime]}
-                max={duration || 100}
+                value={[isLive ? totalStreamedTime : currentTime]}
+                max={isLive ? totalStreamedTime : duration || 100}
                 step={0.1}
                 className="cursor-pointer bg-gray-500/50"
-                onValueChange={(value) => {
-                  if (audioPlayerRef.current && !isNaN(value[0])) {
-                    audioPlayerRef.current.currentTime = value[0]
-                    setCurrentTime(value[0])
-                  }
-                }}
+                onValueChange={handleSeek}
+                onValueCommit={handleSeekEnd}
               />
+              {isLive && (
+                <div className="flex justify-end">
+                  <span className="text-xs text-amber-200 flex items-center">
+                    <span className="w-2 h-2 bg-red-500 rounded-full mr-1 animate-pulse"></span>
+                    LIVE
+                  </span>
+                </div>
+              )}
             </div>
 
             <div className="flex items-center justify-center space-x-4">
@@ -683,7 +781,13 @@ export default function LearningProgress({
                 className="rounded-full h-12 w-12 bg-amber-100 hover:bg-amber-100/70 text-black"
                 onClick={togglePlayPause}
               >
-                {isPlaying ? <PauseCircle className="h-8 w-8" /> : <PlayCircle className="h-8 w-8" />}
+                {isBuffering ? (
+                  <div className="h-8 w-8 animate-spin rounded-full border-2 border-black border-t-transparent" />
+                ) : isPlaying ? (
+                  <PauseCircle className="h-8 w-8" />
+                ) : (
+                  <PlayCircle className="h-8 w-8" />
+                )}
               </Button>
               <Button
                 variant="ghost"

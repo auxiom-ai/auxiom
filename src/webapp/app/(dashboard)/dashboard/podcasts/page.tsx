@@ -3,22 +3,6 @@ import { getUser, fetchUserPodcasts } from "@/lib/db/queries";
 import { redirect } from "next/navigation";
 import LearningProgress from "./history";
 
-// WebSocket endpoint for podcast streaming
-const WS_ENDPOINT = `ws://127.0.0.1:3000/api/podcast-streaming`; // Updated WebSocket URL to use port 3000
-
-interface LearningProgressProps {
-  podcasts: {
-    id: number;
-    title: string;
-    episodeNumber: number;
-    date: string;
-    duration: string;
-    listened: boolean;
-    articles: { title: string; description: string; url: string }[];
-    script: { text: string }[];
-  }[];
-}
-
 export default async function Page() {
   const currentKeywords: string[] = await getKeywords();
   const isActive: boolean = await getAccountStatus();
@@ -51,7 +35,7 @@ export default async function Page() {
     audioFileUrl: podcast.audioFileUrl ?? "",
     listened: podcast.completed,
     articles: podcast.articles as { title: string; description: string; url: string }[],
-    script: podcast.script as { text: string }[],
+    script: podcast.script as string[],
   }));
 
   return (
