@@ -1,3 +1,5 @@
+Next Steps: the heavy packges on the client side can't be there, they ned to be language agnostic and we can't have a large libraries installed (minimal libraries) on the client side, it needs to be handleded by the server. don't need to work on the conversational inspect right now, want to make it possible using with millis, and want implementation on lambda and api gateway, and for now just streaming audio. the speech to text needs to be done on the server and just make it serverles with lambda and api gateway. 
+
 I've implemented a bidirectional WebSocket-based communication system that extends the existing podcast streaming server with:
 
 1. **Server-side Enhancements**:
