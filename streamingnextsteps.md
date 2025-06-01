@@ -96,5 +96,3 @@ To deploy:
    # Check logs
    aws logs get-log-events --log-group-name /ecs/podcast-server --log-stream-name your-stream
    ```
-
-Would you like me to provide more details about any of these steps or help with a specific part of the deployment?
