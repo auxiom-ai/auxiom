@@ -17,6 +17,10 @@ import spacy
 import hashlib
 from datetime import datetime
 from io import StringIO
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '..', 'scraper-lambda'))
 import common.s3 as s3
 
 db_access_url = os.environ.get('DB_ACCESS_URL')
@@ -341,7 +345,73 @@ class Clusterer:
         
         print(f"Filtered out {dropped_count} irrelevant clusters. Remaining: {len(filtered_clusters)}")
         return filtered_clusters
-    
+           
+    def find_bills_for_gov_articles(self, filtered_clusters):
+        """
+        Find related bills for the top 3 government articles using congress scraper.
+        
+        Parameters:
+        - filtered_clusters: List of filtered cluster dictionaries
+        
+        Returns:
+        - bills_data: Dictionary mapping gov article titles to found bills
+        """
+        try:
+            # Import congress scraper functionality
+            from logic.congress_scraper import Congress
+            
+            # Get top 3 government articles from all clusters
+            all_gov_articles = []
+            for cluster in filtered_clusters:
+                for doc in cluster['documents']:
+                    if doc.get('source') == 'gov' and doc.get('type') == 'primary':
+                        all_gov_articles.append(doc)
+            
+            # Sort by cluster score and take top 3
+            top_gov_articles = all_gov_articles[:3]
+            
+            if not top_gov_articles:
+                print("No government articles found for bill search")
+                return {}
+            
+            print(f"========== FINDING BILLS FOR TOP {len(top_gov_articles)} GOV ARTICLES ===========")
+            
+            bills_data = {}
+            
+            for i, gov_article in enumerate(top_gov_articles):
+                title = gov_article.get('title', '')
+                print(f"Searching for bills related to: '{title}'")
+                
+                try:
+                    # Create Congress instance with the article title as topic
+                    congress = Congress([title])
+                    bills = congress.get_bills()
+                    
+                    if bills and len(bills) > 0:
+                        print(f"Found {len(bills)} bills for '{title}'")
+                        bills_data[title] = bills
+                        
+                        # Print first few bills for debugging
+                        for j, bill in enumerate(bills[:3]):
+                            print(f"  Bill {j+1}: {bill.get('title', 'No title')}")
+                            print(f"    Bill ID: {bill.get('bill_id', 'No ID')}")
+                    else:
+                        print(f"No bills found for '{title}'")
+                        bills_data[title] = []
+                        
+                except Exception as e:
+                    print(f"Error finding bills for '{title}': {e}")
+                    bills_data[title] = []
+            
+            return bills_data
+            
+        except ImportError as e:
+            print(f"Could not import congress scraper: {e}")
+            return {}
+        except Exception as e:
+            print(f"Error in find_bills_for_gov_articles: {e}")
+            return {}
+
     def format_output(self, organized_clusters):
         """
         Format clusters for output with improved scoring algorithm.
@@ -595,7 +665,10 @@ class Clusterer:
             # Step 7: Filter out irrelevant clusters
             filtered_clusters = self.filter_irrelevant_clusters(organized_clusters)
             
-            # Step 8: Format output
+            # Step 8: Find bills for top government articles
+            bills_data = self.find_bills_for_gov_articles(filtered_clusters)
+            
+            # Step 9: Format output
             output = self.format_output(filtered_clusters)
             
             # Print summary
@@ -726,15 +799,23 @@ if __name__ == "__main__":
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
 
-    with open('tmp/gov.pkl', 'rb') as f:
-        gov_df = pickle.loads(f.read())
-    with open('tmp/gnews.pkl', 'rb') as f:
-        news_df = pickle.loads(f.read())
+    # Load real data from S3 instead of mock pickle files
+    try:
+        print("Loading real data from S3...")
+        gov_df = load_df('gov')
+        news_df = load_df('gnews')
+    except Exception as e:
+        print(f"Error loading data from S3: {e}")
+        print("Creating empty DataFrames for testing...")
+        gov_df = pd.DataFrame(columns=['title', 'full_text', 'url', 'keyword'])
+        news_df = pd.DataFrame(columns=['title', 'full_text', 'url', 'keyword'])
 
     clusterer = Clusterer()
     clusters = clusterer.cluster_articles(news_df, gov_df)
     
     if clusters and len(clusters) > 0:
+        # Create tmp directory if it doesn't exist
+        os.makedirs('tmp', exist_ok=True)
         with open('tmp/example_cluster.pkl', 'wb') as f:
             pickle.dump(clusters[0]['articles'], f)
         print(f"Example cluster saved to tmp/example_cluster.pkl")
