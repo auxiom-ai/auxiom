@@ -36,7 +36,8 @@ export class ContentStack extends cdk.Stack {
         OPENAI_API_KEY: process.env.OPENAI_API_KEY!,
         GOVINFO_API_KEY: process.env.GOVINFO_API_KEY!,
         DB_ACCESS_URL: process.env.DB_ACCESS_URL!,
-        GOOGLE_API_KEY: process.env.GOOGLE_API_KEY!
+        GOOGLE_API_KEY: process.env.GOOGLE_API_KEY!,
+        CONGRESS_API_KEY: process.env.CONGRESS_API_KEY!
       },
       role: props.coreStack.generalLambdaRole,
       logGroup: logGroup
