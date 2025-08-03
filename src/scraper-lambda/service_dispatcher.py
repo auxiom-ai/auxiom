@@ -3,6 +3,7 @@ import logic.merge
 import logic.dispatch
 import logic.legal_scraper
 import logic.google_scraper
+import logic.congress_scraper
 import json
 import traceback
 
@@ -41,6 +42,7 @@ def _handler(event, context):
         "e_dispatch": logic.dispatch.handler,
         "e_gov": logic.legal_scraper.handler,
         "e_news": logic.google_scraper.handler,
+        "e_congress": logic.congress_scraper.handler,
     }
 
     # Route to the appropriate function

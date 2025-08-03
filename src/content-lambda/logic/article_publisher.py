@@ -449,6 +449,15 @@ def process_single_cluster(cluster_id):
             print(f"Failed to retrieve metadata for cluster {cluster_id}")
             return False
         
+        # Step 1.5: Add bill information using post_processing
+        try:
+            from logic.post_processing import get_bills
+            print("Adding Congressional bill information to cluster...")
+            cluster_df = get_bills(cluster_df)
+        except Exception as e:
+            print(f"Warning: Could not add bill information: {e}")
+            # Continue without bills - this is not a critical failure
+        
         # Step 2: Underwriter researches the cluster
         research_notes = underwriter_research(cluster_df)
         
