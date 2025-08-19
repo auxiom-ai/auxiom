@@ -88,6 +88,23 @@ def handler(payload):
             }
             print(f"Failed to send message in SCRAPER_QUEUE_URL: {error_info}")
             
+        # Add Congress scraper dispatch
+        message = {
+            'action': 'e_congress',
+            "payload": {
+                'topics': chunk
+            }
+        }
+        try:
+            send_to_scraper_queue(message)
+            
+        except ClientError as e:
+            error_info = {
+                'topics': chunk,
+                'error': str(e)
+            }
+            print(f"Failed to send message in SCRAPER_QUEUE_URL: {error_info}")
+            
     print(f"Dispatched {len(topics)} topics in {len(topic_chunks)} chunks")
     
     return {

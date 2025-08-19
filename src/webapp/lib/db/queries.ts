@@ -4,6 +4,7 @@ import { eq, sql } from 'drizzle-orm';
 import type { User, NewUser } from './schema';
 import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/auth/session';
+import { S3Client, ListObjectsV2Command, GetObjectCommand } from '@aws-sdk/client-s3';
 
 
 // get user from session
@@ -168,4 +169,62 @@ export async function getTop3Articles() {
   );
 
   return result;
+}
+
+// Congress Bills from S3
+export async function getCongressBills() {
+  try {
+    const s3Client = new S3Client({
+      region: process.env.AWS_REGION || 'us-east-1',
+      credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+      },
+    });
+
+    // Use astra bucket for congress bills
+    const bucketName = '905418457861-astra-bucket';
+
+    // List all congress bill files in S3
+    const listCommand = new ListObjectsV2Command({
+      Bucket: bucketName,
+      Prefix: 'congress/',
+    });
+
+    const listResponse = await s3Client.send(listCommand);
+    const files = listResponse.Contents || [];
+
+    if (files.length === 0) {
+      return [];
+    }
+
+    // Get the most recent file
+    const mostRecentFile = files.sort((a, b) => 
+      (b.LastModified?.getTime() || 0) - (a.LastModified?.getTime() || 0)
+    )[0];
+
+    if (!mostRecentFile.Key) {
+      return [];
+    }
+
+    // Fetch the content of the most recent file
+    const getCommand = new GetObjectCommand({
+      Bucket: bucketName,
+      Key: mostRecentFile.Key,
+    });
+
+    const getResponse = await s3Client.send(getCommand);
+    const content = await getResponse.Body?.transformToString();
+
+    if (!content) {
+      return [];
+    }
+
+    const bills = JSON.parse(content);
+    return bills || [];
+
+  } catch (error) {
+    console.error('Error fetching congress bills from S3:', error);
+    return [];
+  }
 }
