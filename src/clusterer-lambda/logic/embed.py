@@ -746,10 +746,10 @@ if __name__ == "__main__":
 
         try:
             # Delete all existing entries first
-            cursor = conn.cursor()
-            cursor.execute("DELETE FROM articles")
-            conn.commit()  
-            print("Deleted all existing articles from db")
+            # cursor = conn.cursor()
+            # cursor.execute("DELETE FROM articles")
+            # conn.commit()  
+            # print("Deleted all existing articles from db")
 
             cluster_ids = []
             for i, metadata in enumerate(clusters):

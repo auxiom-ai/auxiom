@@ -7,3 +7,4 @@ beautifulsoup4
 psycopg2-binary
 pandas
 gnews
+scikit-learn

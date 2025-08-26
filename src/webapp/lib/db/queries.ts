@@ -4,6 +4,7 @@ import { eq, sql } from 'drizzle-orm';
 import type { User, NewUser } from './schema';
 import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/auth/session';
+import { S3Client, ListObjectsV2Command, GetObjectCommand } from '@aws-sdk/client-s3';
 
 
 // get user from session
@@ -168,4 +169,191 @@ export async function getTop3Articles() {
   );
 
   return result;
+}
+
+// Get latest timeline file from S3 - Only the most recent file
+export async function getLatestTimelineFile() {
+  try {
+    const s3Client = new S3Client({
+      region: process.env.AWS_REGION || 'us-east-1',
+      credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+      },
+    });
+
+    // Use astra bucket for congress bills
+    const bucketName = '905418457861-astra-bucket';
+
+    // List all congress bill files in S3
+    const listCommand = new ListObjectsV2Command({
+      Bucket: bucketName,
+      Prefix: 'congress/',
+    });
+
+    const listResponse = await s3Client.send(listCommand);
+    const files = listResponse.Contents || [];
+
+    if (files.length === 0) {
+      return null;
+    }
+
+    // Sort files by last modified date (newest first) and get only the latest
+    const sortedFiles = files.sort((a, b) => 
+      (b.LastModified?.getTime() || 0) - (a.LastModified?.getTime() || 0)
+    );
+
+    const latestFile = sortedFiles[0];
+    if (!latestFile.Key) return null;
+
+    try {
+      // Fetch the content of the latest file
+      const getCommand = new GetObjectCommand({
+        Bucket: bucketName,
+        Key: latestFile.Key,
+      });
+
+      const getResponse = await s3Client.send(getCommand);
+      const content = await getResponse.Body?.transformToString();
+
+      if (!content) return null;
+
+      const bills = JSON.parse(content);
+      
+      // Calculate total bills across all interests
+      const totalBills = typeof bills === 'object' && bills !== null 
+        ? Object.values(bills).reduce((sum: number, billArray: any) => 
+            sum + (Array.isArray(billArray) ? billArray.length : 0), 0)
+        : 0;
+
+      return {
+        fileName: latestFile.Key.split('/').pop() || latestFile.Key,
+        fullPath: latestFile.Key,
+        lastModified: latestFile.LastModified,
+        size: latestFile.Size || 0,
+        totalBills,
+        bills,
+        metadata: {
+          etag: latestFile.ETag,
+          storageClass: latestFile.StorageClass,
+        }
+      };
+    } catch (error) {
+      console.error(`Error fetching content for ${latestFile.Key}:`, error);
+      return {
+        fileName: latestFile.Key.split('/').pop() || latestFile.Key,
+        fullPath: latestFile.Key,
+        lastModified: latestFile.LastModified,
+        size: latestFile.Size || 0,
+        totalBills: 0,
+        bills: null,
+        error: 'Failed to fetch content',
+        metadata: {
+          etag: latestFile.ETag,
+          storageClass: latestFile.StorageClass,
+        }
+      };
+    }
+
+  } catch (error) {
+    console.error('Error fetching latest timeline file from S3:', error);
+    return null;
+  }
+}
+
+// Congress Bills from S3 - Get all files with metadata
+export async function getCongressBills() {
+  try {
+    const s3Client = new S3Client({
+      region: process.env.AWS_REGION || 'us-east-1',
+      credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+      },
+    });
+
+    // Use astra bucket for congress bills
+    const bucketName = '905418457861-astra-bucket';
+
+    // List all congress bill files in S3
+    const listCommand = new ListObjectsV2Command({
+      Bucket: bucketName,
+      Prefix: 'congress/',
+    });
+
+    const listResponse = await s3Client.send(listCommand);
+    const files = listResponse.Contents || [];
+
+    if (files.length === 0) {
+      return [];
+    }
+
+    // Sort files by last modified date (newest first)
+    const sortedFiles = files.sort((a, b) => 
+      (b.LastModified?.getTime() || 0) - (a.LastModified?.getTime() || 0)
+    );
+
+    // Fetch content and metadata for all files
+    const filesWithContent = await Promise.all(
+      sortedFiles.map(async (file) => {
+        if (!file.Key) return null;
+
+        try {
+          // Fetch the content of each file
+          const getCommand = new GetObjectCommand({
+            Bucket: bucketName,
+            Key: file.Key,
+          });
+
+          const getResponse = await s3Client.send(getCommand);
+          const content = await getResponse.Body?.transformToString();
+
+          if (!content) return null;
+
+          const bills = JSON.parse(content);
+          
+          // Calculate total bills across all interests
+          const totalBills = typeof bills === 'object' && bills !== null 
+            ? Object.values(bills).reduce((sum: number, billArray: any) => 
+                sum + (Array.isArray(billArray) ? billArray.length : 0), 0)
+            : 0;
+
+          return {
+            fileName: file.Key.split('/').pop() || file.Key,
+            fullPath: file.Key,
+            lastModified: file.LastModified,
+            size: file.Size || 0,
+            totalBills,
+            bills,
+            metadata: {
+              etag: file.ETag,
+              storageClass: file.StorageClass,
+            }
+          };
+        } catch (error) {
+          console.error(`Error fetching content for ${file.Key}:`, error);
+          return {
+            fileName: file.Key.split('/').pop() || file.Key,
+            fullPath: file.Key,
+            lastModified: file.LastModified,
+            size: file.Size || 0,
+            totalBills: 0,
+            bills: null,
+            error: 'Failed to fetch content',
+            metadata: {
+              etag: file.ETag,
+              storageClass: file.StorageClass,
+            }
+          };
+        }
+      })
+    );
+
+    // Filter out null results and return
+    return filesWithContent.filter(file => file !== null);
+
+  } catch (error) {
+    console.error('Error fetching congress bills from S3:', error);
+    return [];
+  }
 }
