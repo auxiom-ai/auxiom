@@ -85,12 +85,12 @@ export default function HomePage({ articles = [] }: HomePageProps) {
               Listen to our charismatic AI hosts cut through the legislative noise and deliver the most relevant updates on the issues you care about.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-`             <Button 
+              <Button 
                 onClick={togglePopup}
                 className="bg-primary hover:bg-primary/90 text-white transition duration-300 rounded-full text-lg px-8 py-3 inline-flex items-center justify-center">
                   <Podcast className="mr-2 h-5 w-5" />
                   Demo
-              </Button>`
+              </Button>
             </div>
           </div>
 

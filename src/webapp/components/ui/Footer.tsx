@@ -65,8 +65,6 @@ export function Footer() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <Link href="/about" className="hover:text-gray-600 transition-colors">About</Link>
-              <Link href="/product" className="hover:text-gray-600 transition-colors">Product</Link>
-              <Link href="/careers" className="hover:text-gray-600 transition-colors">Careers</Link>
               <Link href="/contact" className="hover:text-gray-600 transition-colors">Contact</Link>
             </div>
           </div>

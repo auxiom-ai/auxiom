@@ -16,20 +16,17 @@ export default async function Page() {
       .filter((name: string) => name && name.toLowerCase() !== "none")
       .map((name: string) =>
         name
-        .toLowerCase()
         .replace(/(^\w{1})|(\s+\w{1})/g, (letter) => letter.toUpperCase())
       )
     : [],
     topics: Array.isArray(article.topics) ? article.topics
     .map((name: string) =>
         name
-        .toLowerCase()
         .replace(/(^\w{1})|(\s+\w{1})/g, (letter) => letter.toUpperCase())
       ) : [],
     tags: Array.isArray(article.tags) ? article.tags
     .map((name: string) =>
         name
-        .toLowerCase()
         .replace(/(^\w{1})|(\s+\w{1})/g, (letter) => letter.toUpperCase())
       ) : [],
     date: (article.date instanceof Date ? article.date.toISOString() : String(article.date)),

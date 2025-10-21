@@ -14,7 +14,6 @@ export default async function Page() {
         .filter((name: string) => name && name.toLowerCase() !== "none")
         .map((name: string) =>
           name
-            .toLowerCase()
             .replace(/(^\w{1})|(\s+\w{1})/g, (letter) => letter.toUpperCase())
         )
       : [],
@@ -22,7 +21,6 @@ export default async function Page() {
       ? article.topics
         .map((name: string) =>
           name
-            .toLowerCase()
             .replace(/(^\w{1})|(\s+\w{1})/g, (letter) => letter.toUpperCase())
         )
       : [],
@@ -30,7 +28,6 @@ export default async function Page() {
       ? article.tags
         .map((name: string) =>
           name
-            .toLowerCase()
             .replace(/(^\w{1})|(\s+\w{1})/g, (letter) => letter.toUpperCase())
         )
       : [],
